@@ -77,24 +77,26 @@ export function CardView({
           }}
         />
       </div>
-      <p className="card-name">{cardName}</p>
-      {isSummarizing && (
-        <p className="summary-loading">Consulting the cards...</p>
-      )}
-      {summary && <p className="summary">{summary}</p>}
-      {summaryError && <p className="summary-error">{summaryError}</p>}
-      {remaining !== null && remaining < 3 && (
-        <p className="remaining">
-          {remaining} reading{remaining !== 1 ? "s" : ""} remaining this hour
-        </p>
-      )}
-      <button
-        className="draw-btn again-btn"
-        onClick={onDrawCard}
-        disabled={isDrawing}
-      >
-        {isDrawing ? "Drawing..." : "Pull another card"}
-      </button>
+      <div className="card-text">
+        <p className="card-name">{cardName}</p>
+        {isSummarizing && (
+          <p className="summary-loading">Consulting the cards...</p>
+        )}
+        {summary && <p className="summary">{summary}</p>}
+        {summaryError && <p className="summary-error">{summaryError}</p>}
+        {remaining !== null && remaining < 3 && (
+          <p className="remaining">
+            {remaining} reading{remaining !== 1 ? "s" : ""} remaining this hour
+          </p>
+        )}
+        <button
+          className="draw-btn again-btn"
+          onClick={onDrawCard}
+          disabled={isDrawing}
+        >
+          {isDrawing ? "Drawing..." : "Pull another card"}
+        </button>
+      </div>
     </div>
   )
 }

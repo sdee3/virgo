@@ -102,18 +102,28 @@ body {
 
 .card-area {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
   width: 100%;
+  gap: 40px;
   animation: fadeIn 0.5s ease-out;
 }
 
 .card-wrapper {
   display: flex;
   justify-content: center;
-  align-items: center;
-  width: 100%;
+  align-items: flex-start;
   padding: 10px 0;
+  flex: 1;
+}
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  flex: 1;
 }
 
 .card-canvas {
@@ -126,7 +136,6 @@ body {
   font-weight: 600;
   font-style: italic;
   color: #d4c9b0;
-  margin-top: 20px;
   letter-spacing: 0.04em;
 }
 
@@ -145,7 +154,6 @@ body {
   font-weight: 400;
   color: #d4c9b0;
   line-height: 1.6;
-  max-width: 480px;
 }
 
 .summary-error {
@@ -153,7 +161,6 @@ body {
   font-size: clamp(0.9rem, 2.5vw, 1rem);
   font-weight: 400;
   color: #e8a090;
-  max-width: 480px;
 }
 
 .remaining {
@@ -176,5 +183,17 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .card-area {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .card-text {
+    align-items: center;
+    text-align: center;
   }
 }

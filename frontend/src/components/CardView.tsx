@@ -32,11 +32,12 @@ export function CardView({
   const isReversedRef = useRef(isReversed)
   isReversedRef.current = isReversed
 
-  const renderCanvas = useCanvasRenderer(canvasRef, imageRef)
-  const { isDragging, handlePointerDown, resetRotation } = useCardInteraction(
+  const { isDragging, isHovered, glossPosRef, handlePointerEnter, handlePointerLeave, handlePointerMove, handlePointerDown, resetRotation } = useCardInteraction(
     canvasRef,
     isReversedRef
   )
+  const showGlossy = isHovered || isDragging
+  const renderCanvas = useCanvasRenderer(canvasRef, imageRef, showGlossy, glossPosRef)
 
   useEffect(() => {
     if (!cardFile) return
@@ -66,6 +67,9 @@ export function CardView({
       <div
         className="card-wrapper"
         style={{ perspective: "1200px" }}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onPointerMove={handlePointerMove}
         onPointerDown={handlePointerDown}
       >
         <canvas

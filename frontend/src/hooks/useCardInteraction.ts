@@ -5,12 +5,32 @@ export function useCardInteraction(
   isReversedRef: RefObject<boolean>
 ) {
   const [isDragging, setIsDragging] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+  const glossPosRef = useRef({ x: 0.5, y: 0.5 })
 
   const dragRotationRef = useRef({ x: 0, y: 0 })
   const swayRef = useRef(0)
   const lastPointerRef = useRef({ x: 0, y: 0 })
   const isDraggingRef = useRef(false)
   const startTimeRef = useRef(0)
+
+  const handlePointerEnter = useCallback(() => {
+    setIsHovered(true)
+  }, [])
+
+  const handlePointerLeave = useCallback(() => {
+    setIsHovered(false)
+  }, [])
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    glossPosRef.current = {
+      x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
+    }
+  }, [canvasRef])
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     isDraggingRef.current = true
@@ -81,5 +101,5 @@ export function useCardInteraction(
     return () => cancelAnimationFrame(rafId)
   }, [canvasRef, isReversedRef])
 
-  return { isDragging, handlePointerDown, resetRotation }
+  return { isDragging, isHovered, glossPosRef, handlePointerEnter, handlePointerLeave, handlePointerMove, handlePointerDown, resetRotation }
 }

@@ -60,28 +60,30 @@ export default function App() {
 
   return (
     <div className="app">
-      <h1 className="title">Virgo</h1>
-      <p className="subtitle">What question is on your mind?</p>
-
-      {!cardFile && (
-        <button className="draw-btn" onClick={drawCard} disabled={isDrawing}>
-          Pull a card
-        </button>
-      )}
-
-      {cardFile && (
-        <CardView
-          cardFile={cardFile}
-          cardName={cardName}
-          isReversed={isReversed}
-          isDrawing={isDrawing}
-          isSummarizing={isSummarizing}
-          summary={summary}
-          summaryError={summaryError}
-          remaining={remaining}
-          onDrawCard={drawCard}
-          onCardReady={handleCardReady}
-        />
+      {!cardFile ? (
+        <div className="idle-content">
+          <h1 className="title">Virgo</h1>
+          <p className="subtitle">What question is on your mind?</p>
+          <button className="draw-btn" onClick={drawCard} disabled={isDrawing}>
+            Pull a card
+          </button>
+        </div>
+      ) : (
+        <>
+          <h1 className="title">Virgo</h1>
+          <CardView
+            cardFile={cardFile}
+            cardName={cardName}
+            isReversed={isReversed}
+            isDrawing={isDrawing}
+            isSummarizing={isSummarizing}
+            summary={summary}
+            summaryError={summaryError}
+            remaining={remaining}
+            onDrawCard={drawCard}
+            onCardReady={handleCardReady}
+          />
+        </>
       )}
 
       <p className="blessing">blessed by the Creator of All That Is</p>

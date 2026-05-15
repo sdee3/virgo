@@ -9,11 +9,11 @@ pnpm build
 
 echo ""
 echo "=== Emptying S3 bucket: s3://${BUCKET} ==="
-aws s3 rm "s3://${BUCKET}" --recursive --region "${REGION}"
+aws s3 rm "s3://${BUCKET}" --recursive --exclude "cards/*" --region "${REGION}"
 
 echo ""
 echo "=== Uploading dist/ to s3://${BUCKET} ==="
-aws s3 sync "${DIST_DIR}" "s3://${BUCKET}" --delete --region "${REGION}"
+aws s3 sync "${DIST_DIR}" "s3://${BUCKET}" --delete --exclude "cards/*" --region "${REGION}"
 
 echo ""
 echo "=== Invalidating CloudFront cache ==="

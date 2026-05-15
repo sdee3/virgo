@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.env"
 
 echo "=== Building frontend ==="
-pnpm --dir ./frontend build
+pnpm build
 
 echo ""
 echo "=== Emptying S3 bucket: s3://${BUCKET} ==="

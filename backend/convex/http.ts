@@ -49,7 +49,7 @@ http.route({
     if (!allowed) {
       return new Response(
         JSON.stringify({
-          error: "You've reached the limit of 3 card readings per 60 minutes.",
+          error: "You've reached the limit of 20 card readings per 60 minutes.",
           remaining: 0,
         }),
         { status: 429, headers },

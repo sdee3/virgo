@@ -130,6 +130,44 @@ body {
   letter-spacing: 0.04em;
 }
 
+.summary-loading {
+  margin-top: 16px;
+  font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+  font-weight: 300;
+  font-style: italic;
+  color: #a89f8a;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.summary {
+  margin-top: 16px;
+  font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+  font-weight: 400;
+  color: #d4c9b0;
+  line-height: 1.6;
+  max-width: 480px;
+}
+
+.summary-error {
+  margin-top: 16px;
+  font-size: clamp(0.9rem, 2.5vw, 1rem);
+  font-weight: 400;
+  color: #e8a090;
+  max-width: 480px;
+}
+
+.remaining {
+  margin-top: 8px;
+  font-size: clamp(0.75rem, 2vw, 0.85rem);
+  font-weight: 300;
+  color: #7a8a6e;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

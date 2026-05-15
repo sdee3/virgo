@@ -71,12 +71,18 @@ function getCardName(file) {
   return card ? card.display : file.replace(".png", "").replace(/^\d+-/, "")
 }
 
+const CONVEX_SITE_URL = "https://tangible-impala-518.convex.site"
+
 export default function App() {
   const [cardFile, setCardFile] = useState(null)
   const [cardName, setCardName] = useState("")
   const [isDrawing, setIsDrawing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isReversed, setIsReversed] = useState(false)
+  const [summary, setSummary] = useState(null)
+  const [summaryError, setSummaryError] = useState(null)
+  const [isSummarizing, setIsSummarizing] = useState(false)
+  const [remaining, setRemaining] = useState(null)
 
   const canvasRef = useRef(null)
   const imageRef = useRef(null)
@@ -149,11 +155,15 @@ export default function App() {
 
   const drawCard = useCallback(() => {
     setIsDrawing(true)
+    setSummary(null)
+    setSummaryError(null)
+    setRemaining(null)
     const idx = Math.floor(Math.random() * CARDS.length)
     const card = CARDS[idx]
     const reversed = Math.random() < 0.5
+    const name = reversed ? `Reversed ${card.display}` : card.display
     setCardFile(card.file)
-    setCardName(reversed ? `Reversed ${card.display}` : card.display)
+    setCardName(name)
     setIsReversed(reversed)
     isReversedRef.current = reversed
 
@@ -164,6 +174,28 @@ export default function App() {
       requestAnimationFrame(() => renderCanvasRef.current())
     }
     img.src = `/cards/${card.file}`
+
+    setIsSummarizing(true)
+    fetch(`${CONVEX_SITE_URL}/summarize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cardName: name }),
+    })
+      .then(async (res) => {
+        const data = await res.json()
+        if (!res.ok) {
+          setSummaryError(data.error)
+        } else {
+          setSummary(data.summary)
+          setRemaining(data.remaining)
+        }
+      })
+      .catch(() => {
+        setSummaryError("Could not connect to the reading service.")
+      })
+      .finally(() => {
+        setIsSummarizing(false)
+      })
   }, [])
 
   useEffect(() => {
@@ -272,6 +304,17 @@ export default function App() {
             />
           </div>
           <p className="card-name">{cardName}</p>
+          {isSummarizing && (
+            <p className="summary-loading">Consulting the cards...</p>
+          )}
+          {summary && <p className="summary">{summary}</p>}
+          {summaryError && <p className="summary-error">{summaryError}</p>}
+          {remaining !== null && remaining < 3 && (
+            <p className="remaining">
+              {remaining} reading{remaining !== 1 ? "s" : ""} remaining this
+              hour
+            </p>
+          )}
           <button
             className="draw-btn again-btn"
             onClick={drawCard}

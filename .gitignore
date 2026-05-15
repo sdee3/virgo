@@ -3,3 +3,4 @@ node_modules
 .env*
 
 dist
+backend/convex/_generated

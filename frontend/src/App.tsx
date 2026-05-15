@@ -40,7 +40,7 @@ export default function App() {
       .then(async (res) => {
         const data: SummaryResponse = await res.json()
         if (!res.ok) {
-          setSummaryError("summary" in data ? data.summary : "Unknown error")
+          setSummaryError(data.error || "Unknown error")
         } else {
           setSummary(data.summary)
           setRemaining(data.remaining)

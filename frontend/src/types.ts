@@ -6,4 +6,5 @@ export interface Card {
 export interface SummaryResponse {
   summary: string
   remaining: number
+  error?: string
 }

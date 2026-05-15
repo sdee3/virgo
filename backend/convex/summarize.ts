@@ -1,7 +1,7 @@
 import { mutation } from "./_generated/server"
 import { v } from "convex/values"
 
-const RATE_LIMIT_MAX = 3
+const RATE_LIMIT_MAX = 20
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 
 export const checkAndRecordRateLimit = mutation({

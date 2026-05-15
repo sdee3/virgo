@@ -49,8 +49,7 @@ http.route({
     if (!allowed) {
       return new Response(
         JSON.stringify({
-          error:
-            "You've reached the limit of 3 card readings per 60 minutes. Please wait before drawing another card.",
+          error: "You've reached the limit of 3 card readings per 60 minutes.",
           remaining: 0,
         }),
         { status: 429, headers },
@@ -81,11 +80,12 @@ http.route({
             {
               role: "system",
               content:
-                "You are a tarot card reader. Provide a concise, insightful 2-3 sentence interpretation.",
+                "You are an intuitive tarot reader. Provide insightful card interpretations in a warm, reflective tone. Write in second person to make the reading feel personal and direct. Each reading should be 2-3 sentences.",
             },
             {
               role: "user",
-              content: `Answer the question of the user, which is unknown to us, using the following tarot card: ${body.cardName}`,
+              content: `Card drawn: ${body.cardName}
+The user has drawn this card seeking guidance on a question in their life. Speak to the card's general wisdom — its energy, themes, and what reflection it invites.${body.cardName.startsWith("Reversed ") ? " Since the card is reversed, address how its energy may be blocked, internalized, or requiring deeper introspection." : ""}`,
             },
           ],
           service_tier: "flex",

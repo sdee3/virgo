@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { CARDS } from "./data/cards"
-import { CONVEX_SITE_URL } from "./data/constants"
 import { CardView } from "./components/CardView"
-import type { SummaryResponse } from "./types"
+import { PreviousReadings } from "./components/PreviousReadings"
+import { fetchPreviousReadings, summarizeCard } from "./lib/api"
+import type { StoredReading } from "./types"
 import "./App.css"
 
 export default function App() {
@@ -14,8 +15,19 @@ export default function App() {
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [isSummarizing, setIsSummarizing] = useState(false)
   const [remaining, setRemaining] = useState<number | null>(null)
+  const [previousReadings, setPreviousReadings] = useState<StoredReading[]>([])
 
   const isReversedRef = useRef(false)
+
+  const loadPreviousReadings = useCallback(() => {
+    fetchPreviousReadings()
+      .then((data) => setPreviousReadings(data.readings))
+      .catch(() => setPreviousReadings([]))
+  }, [])
+
+  useEffect(() => {
+    loadPreviousReadings()
+  }, [loadPreviousReadings])
 
   const drawCard = useCallback(() => {
     setIsDrawing(true)
@@ -32,27 +44,21 @@ export default function App() {
     isReversedRef.current = reversed
 
     setIsSummarizing(true)
-    fetch(`${CONVEX_SITE_URL}/summarize`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cardName: name }),
-    })
-      .then(async (res) => {
-        const data: SummaryResponse = await res.json()
-        if (!res.ok) {
-          setSummaryError(data.error || "Unknown error")
-        } else {
-          setSummary(data.summary)
-          setRemaining(data.remaining)
-        }
+    summarizeCard(name)
+      .then((data) => {
+        setSummary(data.summary)
+        setRemaining(data.remaining)
+        loadPreviousReadings()
       })
-      .catch(() => {
-        setSummaryError("Could not connect to the reading service.")
+      .catch((err: Error) => {
+        setSummaryError(
+          err.message || "Could not connect to the reading service.",
+        )
       })
       .finally(() => {
         setIsSummarizing(false)
       })
-  }, [])
+  }, [loadPreviousReadings])
 
   const handleCardReady = useCallback(() => {
     setIsDrawing(false)
@@ -67,6 +73,7 @@ export default function App() {
           <button className="draw-btn" onClick={drawCard} disabled={isDrawing}>
             Pull a card
           </button>
+          <PreviousReadings readings={previousReadings} />
         </div>
       ) : (
         <>
@@ -83,6 +90,7 @@ export default function App() {
             onDrawCard={drawCard}
             onCardReady={handleCardReady}
           />
+          <PreviousReadings readings={previousReadings} />
         </>
       )}
 

@@ -204,6 +204,60 @@ body {
   color: #6a8a9a;
 }
 
+.previous-readings {
+  width: 100%;
+  max-width: 520px;
+  margin-top: 40px;
+  text-align: left;
+}
+
+.previous-readings-title {
+  font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a9bb8;
+  margin-bottom: 16px;
+}
+
+.previous-readings-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.previous-reading-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.previous-reading-card {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-style: italic;
+  color: #e8d8a0;
+}
+
+.previous-reading-summary {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #b0b8c8;
+}
+
+.previous-reading-time {
+  display: block;
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: #6a7a92;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }

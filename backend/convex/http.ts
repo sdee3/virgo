@@ -4,17 +4,58 @@ import { api } from "./_generated/api"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, X-Device-Id",
+}
+
+function getDeviceId(request: Request): string | null {
+  const header = request.headers.get("x-device-id")?.trim()
+  if (header && header.length <= 128) return header
+  return null
 }
 
 const http = httpRouter()
 
+function optionsHandler() {
+  return httpAction(async () => {
+    return new Response(null, { headers: corsHeaders })
+  })
+}
+
 http.route({
   path: "/summarize",
   method: "OPTIONS",
-  handler: httpAction(async () => {
-    return new Response(null, { headers: corsHeaders })
+  handler: optionsHandler(),
+})
+
+http.route({
+  path: "/readings",
+  method: "OPTIONS",
+  handler: optionsHandler(),
+})
+
+http.route({
+  path: "/readings",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const headers = {
+      "Content-Type": "application/json",
+      ...corsHeaders,
+    }
+
+    const deviceId = getDeviceId(request)
+    if (!deviceId) {
+      return new Response(
+        JSON.stringify({ error: "X-Device-Id header is required" }),
+        { status: 400, headers },
+      )
+    }
+
+    const readings = await ctx.runQuery(api.readings.listByDevice, {
+      deviceId,
+    })
+
+    return new Response(JSON.stringify({ readings }), { headers })
   }),
 })
 
@@ -27,10 +68,13 @@ http.route({
       ...corsHeaders,
     }
 
-    const ip =
-      request.headers.get("cf-connecting-ip") ??
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      "unknown"
+    const deviceId = getDeviceId(request)
+    if (!deviceId) {
+      return new Response(
+        JSON.stringify({ error: "X-Device-Id header is required" }),
+        { status: 400, headers },
+      )
+    }
 
     const body: { cardName?: string } = await request.json()
 
@@ -43,7 +87,7 @@ http.route({
 
     const { allowed, remaining } = await ctx.runMutation(
       api.summarize.checkAndRecordRateLimit,
-      { ip },
+      { deviceId },
     )
 
     if (!allowed) {
@@ -108,6 +152,12 @@ The user has drawn this card seeking guidance on a question in their life. Speak
     const data = await openRouterResponse.json()
     const summary =
       data.choices?.[0]?.message?.content ?? "No interpretation available."
+
+    await ctx.runMutation(api.readings.saveReading, {
+      deviceId,
+      cardName: body.cardName,
+      summary,
+    })
 
     return new Response(JSON.stringify({ summary, remaining }), { headers })
   }),

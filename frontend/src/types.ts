@@ -8,3 +8,14 @@ export interface SummaryResponse {
   remaining: number
   error?: string
 }
+
+export interface StoredReading {
+  cardName: string
+  summary: string
+  createdAt: number
+}
+
+export interface ReadingsResponse {
+  readings: StoredReading[]
+  error?: string
+}

@@ -5,14 +5,14 @@ const RATE_LIMIT_MAX = 20
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 
 export const checkAndRecordRateLimit = mutation({
-  args: { ip: v.string() },
-  handler: async (ctx, { ip }) => {
+  args: { deviceId: v.string() },
+  handler: async (ctx, { deviceId }) => {
     const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS
 
     const recentEntries = await ctx.db
       .query("rateLimits")
-      .withIndex("by_ip_timestamp", (q) =>
-        q.eq("ip", ip).gte("timestamp", cutoff),
+      .withIndex("by_device_timestamp", (q) =>
+        q.eq("deviceId", deviceId).gte("timestamp", cutoff),
       )
       .collect()
 
@@ -20,7 +20,7 @@ export const checkAndRecordRateLimit = mutation({
       return { allowed: false, remaining: 0 }
     }
 
-    await ctx.db.insert("rateLimits", { ip, timestamp: Date.now() })
+    await ctx.db.insert("rateLimits", { deviceId, timestamp: Date.now() })
 
     return {
       allowed: true,

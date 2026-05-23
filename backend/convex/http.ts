@@ -73,6 +73,8 @@ http.route({
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
+          "HTTP-Referer": process.env.OPENROUTER_REFERER ?? "https://virgo.sdee3.com",
+          "X-OpenRouter-Title": process.env.OPENROUTER_TITLE ?? "Virgo",
         },
         body: JSON.stringify({
           model,

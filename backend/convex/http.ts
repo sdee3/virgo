@@ -51,11 +51,33 @@ http.route({
       )
     }
 
-    const readings = await ctx.runQuery(api.readings.listByDevice, {
+    const url = new URL(request.url)
+    const limitParam = url.searchParams.get("limit")
+    const skipParam = url.searchParams.get("skip")
+    const limit = limitParam ? Number.parseInt(limitParam, 10) : 3
+    const skip = skipParam ? Number.parseInt(skipParam, 10) : 0
+
+    if (!Number.isFinite(limit) || limit < 1 || limit > 100) {
+      return new Response(JSON.stringify({ error: "Invalid limit" }), {
+        status: 400,
+        headers,
+      })
+    }
+
+    if (!Number.isFinite(skip) || skip < 0) {
+      return new Response(JSON.stringify({ error: "Invalid skip" }), {
+        status: 400,
+        headers,
+      })
+    }
+
+    const result = await ctx.runQuery(api.readings.listReadings, {
       deviceId,
+      limit,
+      skip,
     })
 
-    return new Response(JSON.stringify({ readings }), { headers })
+    return new Response(JSON.stringify(result), { headers })
   }),
 })
 
@@ -76,7 +98,7 @@ http.route({
       )
     }
 
-    const body: { cardName?: string } = await request.json()
+    const body: { cardName?: string; drawnAt?: number } = await request.json()
 
     if (!body.cardName) {
       return new Response(JSON.stringify({ error: "cardName is required" }), {
@@ -153,10 +175,16 @@ The user has drawn this card seeking guidance on a question in their life. Speak
     const summary =
       data.choices?.[0]?.message?.content ?? "No interpretation available."
 
+    const drawnAt =
+      typeof body.drawnAt === "number" && Number.isFinite(body.drawnAt)
+        ? body.drawnAt
+        : Date.now()
+
     await ctx.runMutation(api.readings.saveReading, {
       deviceId,
       cardName: body.cardName,
       summary,
+      drawnAt,
     })
 
     return new Response(JSON.stringify({ summary, remaining }), { headers })

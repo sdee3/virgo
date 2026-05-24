@@ -10,6 +10,6 @@ export default defineSchema({
     deviceId: v.string(),
     cardName: v.string(),
     summary: v.string(),
-    createdAt: v.number(),
-  }).index("by_device_created", ["deviceId", "createdAt"]),
+    drawnAt: v.number(),
+  }).index("by_device_drawnAt", ["deviceId", "drawnAt"]),
 })

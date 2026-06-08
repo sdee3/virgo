@@ -6,6 +6,7 @@ import { CardView } from "./components/CardView"
 import { PastReadingsPage } from "./components/PastReadingsPage"
 import { FannedCards, useShowFannedCards } from "./components/FannedCards"
 import { UserMenu } from "./components/UserMenu"
+import { useIdentity } from "./lib/identityContext"
 import { parseCardName } from "./utils/parseCardName"
 import type { StoredReading } from "./types"
 import "./App.css"
@@ -16,6 +17,7 @@ const PAST_READINGS_PREVIEW = 3
 const PAST_READINGS_FULL = 100
 
 export default function App() {
+  const { isSignedIn } = useIdentity()
   const [pageView, setPageView] = useState<PageView>("home")
   const [cardFile, setCardFile] = useState<string | null>(null)
   const [cardName, setCardName] = useState("")
@@ -49,7 +51,7 @@ export default function App() {
   useEffect(() => {
     const showAll = pageView === "past-readings" || showAllPastReadings
     void loadPastReadings(showAll)
-  }, [pageView, showAllPastReadings, loadPastReadings])
+  }, [pageView, showAllPastReadings, loadPastReadings, isSignedIn])
 
   useEffect(() => {
     if (cardFile) {

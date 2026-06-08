@@ -4,9 +4,6 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig({
-  server: {
-    host: '0.0.0.0'
-  },
   plugins: [
     react(),
     VitePWA({
@@ -37,7 +34,14 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src')
-    }
-  }
+      '@': path.resolve(__dirname, 'src'),
+      '@convex-api': path.resolve(__dirname, '../backend/convex/_generated/api.js'),
+    },
+  },
+  server: {
+    host: '0.0.0.0',
+    fs: {
+      allow: ['..'],
+    },
+  },
 })

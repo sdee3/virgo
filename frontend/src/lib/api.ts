@@ -1,12 +1,20 @@
 import { CONVEX_SITE_URL } from "../data/constants"
+import { getAuthToken } from "./authToken"
 import { getDeviceId } from "./deviceId"
 import type { ReadingsResponse, SummaryResponse } from "../types"
 
-function apiHeaders(): HeadersInit {
-  return {
+async function apiHeaders(): Promise<HeadersInit> {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "X-Device-Id": getDeviceId(),
   }
+
+  const token = await getAuthToken()
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  return headers
 }
 
 export async function fetchReadings(
@@ -18,7 +26,7 @@ export async function fetchReadings(
     skip: String(skip),
   })
   const res = await fetch(`${CONVEX_SITE_URL}/readings?${params}`, {
-    headers: apiHeaders(),
+    headers: await apiHeaders(),
   })
   const data: ReadingsResponse = await res.json()
   if (!res.ok) {
@@ -33,7 +41,7 @@ export async function summarizeCard(
 ): Promise<SummaryResponse> {
   const res = await fetch(`${CONVEX_SITE_URL}/summarize`, {
     method: "POST",
-    headers: apiHeaders(),
+    headers: await apiHeaders(),
     body: JSON.stringify({ cardName, drawnAt }),
   })
   const data: SummaryResponse = await res.json()

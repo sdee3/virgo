@@ -1,11 +1,24 @@
 import { httpRouter } from "convex/server"
 import { httpAction } from "./_generated/server"
 import { api } from "./_generated/api"
+import { getClerkUserIdOrNull } from "./lib/auth"
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-Device-Id",
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "https://virgo.sdee3.com",
+]
+
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get("Origin")
+  const allowOrigin =
+    origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[1]
+
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Device-Id, Authorization",
+    Vary: "Origin",
+  }
 }
 
 function getDeviceId(request: Request): string | null {
@@ -17,8 +30,8 @@ function getDeviceId(request: Request): string | null {
 const http = httpRouter()
 
 function optionsHandler() {
-  return httpAction(async () => {
-    return new Response(null, { headers: corsHeaders })
+  return httpAction(async (_ctx, request) => {
+    return new Response(null, { headers: corsHeaders(request) })
   })
 }
 
@@ -40,13 +53,17 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const headers = {
       "Content-Type": "application/json",
-      ...corsHeaders,
+      ...corsHeaders(request),
     }
 
     const deviceId = getDeviceId(request)
-    if (!deviceId) {
+    const clerkUserId = await getClerkUserIdOrNull(ctx)
+
+    if (!deviceId && !clerkUserId) {
       return new Response(
-        JSON.stringify({ error: "X-Device-Id header is required" }),
+        JSON.stringify({
+          error: "X-Device-Id header or Authorization is required",
+        }),
         { status: 400, headers },
       )
     }
@@ -72,7 +89,8 @@ http.route({
     }
 
     const result = await ctx.runQuery(api.readings.listReadings, {
-      deviceId,
+      deviceId: deviceId ?? "",
+      clerkUserId: clerkUserId ?? undefined,
       limit,
       skip,
     })
@@ -87,13 +105,17 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const headers = {
       "Content-Type": "application/json",
-      ...corsHeaders,
+      ...corsHeaders(request),
     }
 
     const deviceId = getDeviceId(request)
-    if (!deviceId) {
+    const clerkUserId = await getClerkUserIdOrNull(ctx)
+
+    if (!deviceId && !clerkUserId) {
       return new Response(
-        JSON.stringify({ error: "X-Device-Id header is required" }),
+        JSON.stringify({
+          error: "X-Device-Id header or Authorization is required",
+        }),
         { status: 400, headers },
       )
     }
@@ -109,7 +131,10 @@ http.route({
 
     const { allowed, remaining } = await ctx.runMutation(
       api.summarize.checkAndRecordRateLimit,
-      { deviceId },
+      {
+        deviceId: deviceId ?? undefined,
+        clerkUserId: clerkUserId ?? undefined,
+      },
     )
 
     if (!allowed) {
@@ -181,7 +206,8 @@ The user has drawn this card seeking guidance on a question in their life. Speak
         : Date.now()
 
     await ctx.runMutation(api.readings.saveReading, {
-      deviceId,
+      deviceId: deviceId ?? `user:${clerkUserId}`,
+      clerkUserId: clerkUserId ?? undefined,
       cardName: body.cardName,
       summary,
       drawnAt,

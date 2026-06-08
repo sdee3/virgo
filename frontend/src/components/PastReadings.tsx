@@ -7,6 +7,7 @@ interface PastReadingsProps {
   showAll: boolean
   onSelect: (reading: StoredReading) => void
   onSeeMore: () => void
+  hideTitle?: boolean
 }
 
 export function PastReadings({
@@ -15,12 +16,13 @@ export function PastReadings({
   showAll,
   onSelect,
   onSeeMore,
+  hideTitle = false,
 }: PastReadingsProps) {
   if (readings.length === 0) return null
 
   return (
     <section className="past-readings">
-      <h2 className="past-readings-title">Past Readings</h2>
+      {!hideTitle && <h2 className="past-readings-title">Past Readings</h2>}
       <ul className="past-readings-list">
         {readings.map((reading) => (
           <li key={reading._id}>

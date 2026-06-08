@@ -3,14 +3,19 @@ import { CARDS } from "./data/cards"
 import { fetchReadings, summarizeCard } from "./lib/api"
 import { BackIcon } from "./components/BackIcon"
 import { CardView } from "./components/CardView"
-import { PastReadings } from "./components/PastReadings"
+import { PastReadingsPage } from "./components/PastReadingsPage"
+import { UserMenu } from "./components/UserMenu"
 import { parseCardName } from "./utils/parseCardName"
 import type { StoredReading } from "./types"
 import "./App.css"
 
+type PageView = "home" | "past-readings"
+
 const PAST_READINGS_PREVIEW = 3
+const PAST_READINGS_FULL = 100
 
 export default function App() {
+  const [pageView, setPageView] = useState<PageView>("home")
   const [cardFile, setCardFile] = useState<string | null>(null)
   const [cardName, setCardName] = useState("")
   const [isDrawing, setIsDrawing] = useState(false)
@@ -31,24 +36,26 @@ export default function App() {
 
   const loadPastReadings = useCallback(async (showAll: boolean) => {
     try {
-      const limit = showAll ? 100 : PAST_READINGS_PREVIEW
+      const limit = showAll ? PAST_READINGS_FULL : PAST_READINGS_PREVIEW
       const { readings, hasMore } = await fetchReadings(limit)
       setPastReadings(readings)
       setPastHasMore(hasMore)
     } catch {
-      // Past readings are optional; fail silently on the homepage.
+      // Past readings are optional; fail silently.
     }
   }, [])
 
   useEffect(() => {
-    void loadPastReadings(showAllPastReadings)
-  }, [showAllPastReadings, loadPastReadings])
+    const showAll = pageView === "past-readings" || showAllPastReadings
+    void loadPastReadings(showAll)
+  }, [pageView, showAllPastReadings, loadPastReadings])
 
   useEffect(() => {
     if (cardFile) {
-      void loadPastReadings(showAllPastReadings)
+      const showAll = pageView === "past-readings" || showAllPastReadings
+      void loadPastReadings(showAll)
     }
-  }, [cardFile, showAllPastReadings, loadPastReadings])
+  }, [cardFile, pageView, showAllPastReadings, loadPastReadings])
 
   useEffect(() => {
     if (!cardFile) {
@@ -57,6 +64,7 @@ export default function App() {
   }, [cardFile])
 
   const drawCard = useCallback(() => {
+    setPageView("home")
     setViewingPast(false)
     setIsDrawing(true)
     setSummary(null)
@@ -96,6 +104,7 @@ export default function App() {
   const openPastReading = useCallback((reading: StoredReading) => {
     const parsed = parseCardName(reading.cardName)
     if (!parsed) return
+    setPageView("home")
     setViewingPast(true)
     setCardFile(parsed.file)
     setCardName(reading.cardName)
@@ -109,6 +118,7 @@ export default function App() {
   }, [])
 
   const backToHome = useCallback(() => {
+    setPageView("home")
     setViewingPast(false)
     setCardFile(null)
     setCardName("")
@@ -117,19 +127,20 @@ export default function App() {
     setRemaining(null)
   }, [])
 
+  const openPastReadingsPage = useCallback(() => {
+    setShowAllPastReadings(true)
+    setPageView("past-readings")
+    setCardFile(null)
+    setCardName("")
+    setSummary(null)
+    setSummaryError(null)
+    setRemaining(null)
+    setViewingPast(false)
+  }, [])
+
   const handleSeeMorePast = useCallback(() => {
     setShowAllPastReadings(true)
   }, [])
-
-  const pastReadingsSection = (
-    <PastReadings
-      readings={pastReadings}
-      hasMore={pastHasMore}
-      showAll={showAllPastReadings}
-      onSelect={openPastReading}
-      onSeeMore={handleSeeMorePast}
-    />
-  )
 
   const appTitle = (
     <h1 className="title">
@@ -144,16 +155,33 @@ export default function App() {
     </h1>
   )
 
+  const showPastReadingsPage = pageView === "past-readings" && !cardFile
+  const isHomepage = !cardFile && pageView === "home"
+  const userMenu = <UserMenu onPastReading={openPastReadingsPage} />
+
   return (
-    <div className={`app${cardFile ? " app--reading" : ""}`}>
-      {!cardFile ? (
+    <div
+      className={`app${!isHomepage ? " app--reading" : ""}${isHomepage ? " app--idle" : ""}`}
+    >
+      {isHomepage && <div className="app-topbar">{userMenu}</div>}
+
+      {showPastReadingsPage ? (
+        <PastReadingsPage
+          readings={pastReadings}
+          hasMore={pastHasMore}
+          showAll={showAllPastReadings}
+          onBack={backToHome}
+          onSelect={openPastReading}
+          onSeeMore={handleSeeMorePast}
+          toolbarEnd={userMenu}
+        />
+      ) : !cardFile ? (
         <div className="idle-content">
           {appTitle}
           <p className="subtitle">What question is on your mind?</p>
           <button className="draw-btn" onClick={drawCard} disabled={isDrawing}>
             Pull a card
           </button>
-          {pastReadingsSection}
         </div>
       ) : (
         <>
@@ -191,7 +219,6 @@ export default function App() {
               onCardReady={handleCardReady}
               hideDrawAnother={viewingPast}
             />
-            {pastReadingsSection}
           </div>
         </>
       )}

@@ -4,6 +4,7 @@ import { fetchReadings, summarizeCard } from "./lib/api"
 import { BackIcon } from "./components/BackIcon"
 import { CardView } from "./components/CardView"
 import { PastReadingsPage } from "./components/PastReadingsPage"
+import { FannedCards, useShowFannedCards } from "./components/FannedCards"
 import { UserMenu } from "./components/UserMenu"
 import { parseCardName } from "./utils/parseCardName"
 import type { StoredReading } from "./types"
@@ -157,11 +158,16 @@ export default function App() {
 
   const showPastReadingsPage = pageView === "past-readings" && !cardFile
   const isHomepage = !cardFile && pageView === "home"
+  const showFannedCards = useShowFannedCards()
   const userMenu = <UserMenu onPastReading={openPastReadingsPage} />
+
+  const blessing = (
+    <p className="blessing">blessed by the Creator of All That Is</p>
+  )
 
   return (
     <div
-      className={`app${!isHomepage ? " app--reading" : ""}${isHomepage ? " app--idle" : ""}`}
+      className={`app${!isHomepage ? " app--reading" : ""}${isHomepage ? " app--idle" : ""}${isHomepage && showFannedCards ? " app--fanned" : ""}`}
     >
       {isHomepage && <div className="app-topbar">{userMenu}</div>}
 
@@ -176,13 +182,23 @@ export default function App() {
           toolbarEnd={userMenu}
         />
       ) : !cardFile ? (
-        <div className="idle-content">
-          {appTitle}
-          <p className="subtitle">What question is on your mind?</p>
-          <button className="draw-btn" onClick={drawCard} disabled={isDrawing}>
-            Pull a card
-          </button>
-        </div>
+        <>
+          <div className="idle-content">
+            {appTitle}
+            <p className="subtitle">What question is on your mind?</p>
+            <button className="draw-btn" onClick={drawCard} disabled={isDrawing}>
+              Pull a card
+            </button>
+          </div>
+          {showFannedCards ? (
+            <div className="idle-footer">
+              {blessing}
+              <FannedCards />
+            </div>
+          ) : (
+            blessing
+          )}
+        </>
       ) : (
         <>
           <header className="reading-chrome">
@@ -223,7 +239,7 @@ export default function App() {
         </>
       )}
 
-      <p className="blessing">blessed by the Creator of All That Is</p>
+      {!isHomepage && blessing}
     </div>
   )
 }

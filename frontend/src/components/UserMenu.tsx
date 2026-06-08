@@ -36,12 +36,12 @@ export function UserMenu({ onPastReading }: UserMenuProps) {
     <div className="user-menu" ref={menuRef}>
       <button
         type="button"
-        className="chrome-btn user-menu__trigger"
+        className="user-menu__trigger"
         onClick={() => setMenuOpen((prev) => !prev)}
         aria-label="User menu"
         aria-expanded={menuOpen}
       >
-        <UserCircleIcon className="chrome-icon" />
+        <UserCircleIcon className="user-menu__icon" />
       </button>
       {menuOpen && (
         <div className="user-menu__dropdown">

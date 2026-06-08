@@ -53,6 +53,43 @@ body {
   flex-shrink: 0;
 }
 
+.user-menu__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: #fda085;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition:
+    transform 0.2s,
+    color 0.25s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.user-menu__trigger:hover {
+  color: #f6d365;
+  transform: translateY(-1px);
+}
+
+.user-menu__trigger:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.user-menu__trigger:focus-visible {
+  outline: 2px solid rgba(253, 160, 133, 0.6);
+  outline-offset: 3px;
+}
+
+.user-menu__icon {
+  width: 36px;
+  height: 36px;
+}
+
 .user-menu__dropdown {
   position: absolute;
   right: 0;
@@ -168,6 +205,10 @@ body {
   line-height: 1.5;
 }
 
+.app--idle {
+  overflow: hidden;
+}
+
 .idle-content {
   flex: 1;
   display: flex;
@@ -176,6 +217,48 @@ body {
   justify-content: center;
   width: 100%;
   max-width: 420px;
+}
+
+.idle-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.idle-footer .blessing {
+  margin: 0 20px 20px;
+}
+
+.fanned-cards {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fanned-cards__fan {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+}
+
+.fanned-cards__card {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  display: block;
+  transform-origin: center bottom;
+  transform: translateX(-50%) translateX(var(--fan-offset-x, 0px))
+    rotate(var(--fan-rotation, 0deg));
+  border-radius: 12px;
 }
 
 .reading-chrome {
@@ -369,7 +452,7 @@ body {
   letter-spacing: 0.03em;
 }
 
-.app--idle .blessing {
+.app--idle > .blessing {
   margin-top: auto;
 }
 
@@ -595,6 +678,24 @@ body {
 }
 
 @media (max-width: 768px) {
+  .app--idle.app--fanned {
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+    padding-bottom: 0;
+  }
+
+  .app--idle.app--fanned .idle-content {
+    justify-content: flex-start;
+    padding-top: clamp(96px, 20vh, 168px);
+  }
+
+  .app--idle.app--fanned .title {
+    margin-bottom: 20px;
+  }
+
+  .app--idle.app--fanned .subtitle {
+    margin-bottom: 28px;
+  }
+
   .idle-content .title-btn {
     font-size: clamp(3.5rem, 14vw, 9rem);
   }

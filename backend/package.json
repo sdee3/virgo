@@ -3,6 +3,6 @@
     "dev": "npx convex dev"
   },
   "dependencies": {
-    "convex": "^1.39.1"
+    "convex": "^1.41.0"
   }
 }

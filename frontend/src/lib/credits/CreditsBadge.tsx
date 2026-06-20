@@ -1,15 +1,36 @@
-import { useCreditsBalance } from "./react";
+import { useAuth } from "@clerk/react"
+import { useQuery } from "convex/react"
+import { identityApi } from "../identity-api"
+import { IdentityConvexScope, identityCreditsEnabled } from "../identityConvex"
+import { useIdentityUserReady } from "../identityUserSync"
 
-export function CreditsBadge() {
-  const { balance, isLoading } = useCreditsBalance();
+function CreditsBadgeInner() {
+  const { isSignedIn } = useAuth()
+  const identityReady = useIdentityUserReady()
+  const balance = useQuery(
+    identityApi.credits.queries.getBalance,
+    isSignedIn && identityReady ? {} : "skip",
+  )
 
-  if (isLoading || balance === undefined) {
-    return null;
+  if (!isSignedIn || balance === undefined) {
+    return null
   }
 
   return (
     <span className="credits-badge" title="SDEE3 credits balance">
-      {balance.toLocaleString()} credits
+      {balance.balance.toLocaleString()} credits
     </span>
-  );
+  )
+}
+
+export function CreditsBadge() {
+  if (!identityCreditsEnabled) {
+    return null
+  }
+
+  return (
+    <IdentityConvexScope>
+      <CreditsBadgeInner />
+    </IdentityConvexScope>
+  )
 }

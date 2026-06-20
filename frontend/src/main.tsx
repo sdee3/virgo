@@ -1,17 +1,18 @@
-import { StrictMode, useCallback } from "react"
+import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { ClerkProvider, useAuth } from "@clerk/react"
 import { ConvexProviderWithClerk } from "convex/react-clerk"
 import { ConvexReactClient } from "convex/react"
 import App from "./App"
 import { IdentityProvider, identityEnabled } from "./lib/identityContext"
-import { IdentityCreditsProvider } from "./lib/credits/react"
+import {
+  IdentityConvexAuthSync,
+  identityCreditsEnabled,
+} from "./lib/identityConvex"
+import { IdentityUserReadyProvider } from "./lib/identityUserSync"
 import "./App.css"
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined
-const identityConvexUrl = import.meta.env.VITE_IDENTITY_CONVEX_URL as
-  | string
-  | undefined
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
   | undefined
@@ -20,33 +21,17 @@ const convex =
   identityEnabled && convexUrl ? new ConvexReactClient(convexUrl) : null
 
 function Root() {
-  return (
+  const app = (
     <IdentityProvider>
       <App />
     </IdentityProvider>
   )
-}
 
-function CreditsWrapper({ children }: { children: React.ReactNode }) {
-  const { getToken, isSignedIn } = useAuth()
-
-  const fetchAccessToken = useCallback(async () => {
-    if (!isSignedIn) return null
-    return getToken({ template: "convex" })
-  }, [getToken, isSignedIn])
-
-  if (!identityConvexUrl) {
-    return children
+  if (!identityCreditsEnabled) {
+    return app
   }
 
-  return (
-    <IdentityCreditsProvider
-      identityConvexUrl={identityConvexUrl}
-      fetchAccessToken={fetchAccessToken}
-    >
-      {children}
-    </IdentityCreditsProvider>
-  )
+  return <IdentityUserReadyProvider>{app}</IdentityUserReadyProvider>
 }
 
 const app = <Root />
@@ -64,7 +49,8 @@ createRoot(document.getElementById("root")!).render(
         ]}
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          <CreditsWrapper>{app}</CreditsWrapper>
+          {identityCreditsEnabled ? <IdentityConvexAuthSync /> : null}
+          {app}
         </ConvexProviderWithClerk>
       </ClerkProvider>
     ) : (

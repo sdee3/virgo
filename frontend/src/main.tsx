@@ -1,4 +1,4 @@
-import { StrictMode } from "react"
+import { StrictMode, useCallback } from "react"
 import { createRoot } from "react-dom/client"
 import { ClerkProvider, useAuth } from "@clerk/react"
 import { ConvexProviderWithClerk } from "convex/react-clerk"
@@ -30,6 +30,11 @@ function Root() {
 function CreditsWrapper({ children }: { children: React.ReactNode }) {
   const { getToken, isSignedIn } = useAuth()
 
+  const fetchAccessToken = useCallback(async () => {
+    if (!isSignedIn) return null
+    return getToken({ template: "convex" })
+  }, [getToken, isSignedIn])
+
   if (!identityConvexUrl) {
     return children
   }
@@ -37,10 +42,7 @@ function CreditsWrapper({ children }: { children: React.ReactNode }) {
   return (
     <IdentityCreditsProvider
       identityConvexUrl={identityConvexUrl}
-      fetchAccessToken={async () => {
-        if (!isSignedIn) return null
-        return getToken({ template: "convex" })
-      }}
+      fetchAccessToken={fetchAccessToken}
     >
       {children}
     </IdentityCreditsProvider>

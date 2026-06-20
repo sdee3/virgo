@@ -6,7 +6,6 @@ import { VIRGO_READING_CREDIT_COST } from "../lib/credits/constants";
 import {
   useCreditsBalance,
   useCreditsCatalog,
-  useCreditsLedger,
   useIdentityCreditsClient,
 } from "../lib/credits/react";
 import type { CreditPack, CreditPriceKey } from "../lib/credits/identityApi";
@@ -22,22 +21,6 @@ function formatUsd(amount: number): string {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function formatDate(timestamp: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(timestamp));
-}
-
-function formatLedgerReason(reason: string): string {
-  if (reason.startsWith("stripe:")) return "Credit purchase";
-  if (reason.startsWith("welcome:")) return "Welcome bonus";
-  if (reason.includes("tarot") || reason.includes("summary")) {
-    return "Tarot reading";
-  }
-  return reason;
 }
 
 function ProductCard({
@@ -73,10 +56,9 @@ function ProductCard({
 export function CreditsPage({ onBack, toolbarEnd }: CreditsPageProps) {
   const { isSignedIn, signIn } = useIdentity();
   const client = useIdentityCreditsClient();
-  const { balance, isLoading: balanceLoading } = useCreditsBalance();
-  const { catalog, isLoading: catalogLoading } = useCreditsCatalog();
-  const { entries, isLoading: ledgerLoading, hasMore, loadMore } =
-    useCreditsLedger();
+  const { balance, isLoading: balanceLoading, error: balanceError } =
+    useCreditsBalance();
+  const { catalog } = useCreditsCatalog();
   const [loadingKey, setLoadingKey] = useState<CreditPriceKey | "portal" | null>(
     null,
   );
@@ -174,15 +156,19 @@ export function CreditsPage({ onBack, toolbarEnd }: CreditsPageProps) {
               </p>
               {isSignedIn ? (
                 <p className="credits-balance">
-                  {balanceLoading || balance === undefined ? (
+                  {balanceLoading ? (
                     "Loading balance…"
-                  ) : (
+                  ) : balanceError ? (
+                    <span className="credits-page__notice">{balanceError}</span>
+                  ) : balance !== undefined ? (
                     <>
                       Current balance:{" "}
                       <span className="credits-balance__amount">
                         {balance.toLocaleString()} credits
                       </span>
                     </>
+                  ) : (
+                    "Balance unavailable."
                   )}
                 </p>
               ) : (
@@ -222,104 +208,55 @@ export function CreditsPage({ onBack, toolbarEnd }: CreditsPageProps) {
               </p>
             ) : null}
 
-            {catalogLoading || catalog === undefined ? (
-              <p className="credits-page__notice">Loading purchase options…</p>
-            ) : (
-              <>
-                <section className="credits-section">
-                  <h2 className="credits-section__heading">Monthly subscriptions</h2>
-                  <div className="credits-products credits-products--grid">
-                    {catalog.subscriptions.map((product) => (
-                      <ProductCard
-                        key={product.key}
-                        product={product}
-                        priceLabel={`${formatUsd(product.priceUsd)} / month`}
-                        loading={loadingKey === product.key}
-                        onBuy={() => void startCheckout(product.key)}
-                      />
-                    ))}
-                  </div>
-                </section>
+            <section className="credits-section">
+              <h2 className="credits-section__heading">Monthly subscriptions</h2>
+              <div className="credits-products credits-products--grid">
+                {catalog.subscriptions.map((product) => (
+                  <ProductCard
+                    key={product.key}
+                    product={product}
+                    priceLabel={`${formatUsd(product.priceUsd)} / month`}
+                    loading={loadingKey === product.key}
+                    onBuy={() => void startCheckout(product.key)}
+                  />
+                ))}
+              </div>
+            </section>
 
-                <section className="credits-section">
-                  <h2 className="credits-section__heading">One-time purchase</h2>
-                  <div className="credits-products">
-                    {catalog.packs.map((product) => (
-                      <ProductCard
-                        key={product.key}
-                        product={product}
-                        priceLabel={formatUsd(product.priceUsd)}
-                        loading={loadingKey === product.key}
-                        onBuy={() => void startCheckout(product.key)}
-                      />
-                    ))}
-                  </div>
-                </section>
-
-                {isSignedIn ? (
-                  <div className="credits-page__portal">
-                    <button
-                      type="button"
-                      className="credits-page__portal-btn"
-                      onClick={() => void openPortal()}
-                      disabled={loadingKey === "portal"}
-                    >
-                      {loadingKey === "portal"
-                        ? "Opening…"
-                        : "Manage subscription"}
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            )}
+            <section className="credits-section">
+              <h2 className="credits-section__heading">One-time purchase</h2>
+              <div className="credits-products">
+                {catalog.packs.map((product) => (
+                  <ProductCard
+                    key={product.key}
+                    product={product}
+                    priceLabel={formatUsd(product.priceUsd)}
+                    loading={loadingKey === product.key}
+                    onBuy={() => void startCheckout(product.key)}
+                  />
+                ))}
+              </div>
+            </section>
 
             {isSignedIn ? (
-              <section className="credits-section">
-                <h2 className="credits-section__heading">Transaction history</h2>
-                {ledgerLoading && entries.length === 0 ? (
-                  <p className="credits-page__notice">Loading transactions…</p>
-                ) : entries.length === 0 ? (
-                  <p className="credits-page__notice">No transactions yet.</p>
-                ) : (
-                  <>
-                    <ul className="credits-ledger">
-                      {entries.map((entry) => (
-                        <li key={entry._id} className="credits-ledger__item">
-                          <div className="credits-ledger__main">
-                            <span className="credits-ledger__reason">
-                              {formatLedgerReason(entry.reason)}
-                            </span>
-                            <span className="credits-ledger__date">
-                              {formatDate(entry.createdAt)}
-                            </span>
-                          </div>
-                          <span
-                            className={`credits-ledger__amount${
-                              entry.amount >= 0
-                                ? " credits-ledger__amount--credit"
-                                : " credits-ledger__amount--debit"
-                            }`}
-                          >
-                            {entry.amount >= 0 ? "+" : ""}
-                            {entry.amount.toLocaleString()}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    {hasMore ? (
-                      <button
-                        type="button"
-                        className="credits-page__load-more"
-                        onClick={loadMore}
-                        disabled={ledgerLoading}
-                      >
-                        {ledgerLoading ? "Loading…" : "Load more"}
-                      </button>
-                    ) : null}
-                  </>
-                )}
-              </section>
+              <div className="credits-page__portal">
+                <button
+                  type="button"
+                  className="credits-page__portal-btn"
+                  onClick={() => void openPortal()}
+                  disabled={loadingKey === "portal"}
+                >
+                  {loadingKey === "portal"
+                    ? "Opening…"
+                    : "Manage subscription"}
+                </button>
+              </div>
             ) : null}
+
+            <section className="credits-section">
+              <h2 className="credits-section__heading">Transaction history</h2>
+              <p className="credits-page__notice">Coming soon</p>
+            </section>
           </>
         )}
       </div>

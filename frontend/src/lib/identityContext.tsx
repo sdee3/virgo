@@ -8,7 +8,6 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { useSignIn } from "@clerk/react/legacy"
 import { useConvexAuth, useMutation } from "convex/react"
 import { api } from "@convex-api"
 import { getDeviceId } from "./deviceId"
@@ -48,58 +47,113 @@ export function useIdentity(): IdentityContextValue {
   return useContext(IdentityContext)
 }
 
+const TICKET_PARAM_NAMES = ["token", "__clerk_ticket"] as const
+
+function readSignInTicket(): string | null {
+  const params = new URLSearchParams(window.location.search)
+  for (const name of TICKET_PARAM_NAMES) {
+    const value = params.get(name)
+    if (value) return value
+  }
+  return null
+}
+
+function stripSignInTicketFromUrl(): void {
+  const url = new URL(window.location.href)
+  let changed = false
+  for (const name of TICKET_PARAM_NAMES) {
+    if (url.searchParams.has(name)) {
+      url.searchParams.delete(name)
+      changed = true
+    }
+  }
+  if (!changed) return
+  const next = url.pathname + (url.search ? url.search : "") + url.hash
+  window.history.replaceState({}, "", next)
+}
+
 function useSignInTokenHandoff(): HandoffState {
-  const ticket = useMemo(
-    () => new URLSearchParams(window.location.search).get("token"),
-    [],
+  const ticket = useMemo(() => readSignInTicket(), [])
+  const clerk = useClerk()
+  const { isLoaded, isSignedIn } = useAuth()
+  const [state, setState] = useState<HandoffState>(() =>
+    ticket ? "pending" : "idle",
   )
-  const { isLoaded: clerkLoaded, isSignedIn } = useAuth()
-  const { signIn, setActive, isLoaded: signInLoaded } = useSignIn()
-  const [state, setState] = useState<HandoffState>(ticket ? "pending" : "idle")
-  const ran = useRef(false)
+  const started = useRef(false)
 
   useEffect(() => {
     if (!ticket) {
       setState("idle")
       return
     }
-    if (
-      !clerkLoaded ||
-      !signInLoaded ||
-      !signIn ||
-      !setActive ||
-      isSignedIn ||
-      ran.current
-    ) {
+
+    if (!isLoaded || !clerk.loaded) {
       return
     }
-    ran.current = true
-    setState("pending")
+
+    if (isSignedIn) {
+      stripSignInTicketFromUrl()
+      setState("done")
+      return
+    }
+
+    if (started.current) {
+      return
+    }
+    started.current = true
+
+    let cancelled = false
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) setState("error")
+    }, 20_000)
 
     void (async () => {
+      setState("pending")
       try {
+        const signIn = clerk.client?.signIn
+        if (!signIn) {
+          setState("error")
+          return
+        }
+
         const attempt = await signIn.create({
           strategy: "ticket",
           ticket,
         })
-        if (attempt.status === "complete" && attempt.createdSessionId) {
-          await setActive({ session: attempt.createdSessionId })
-          const url = new URL(window.location.href)
-          url.searchParams.delete("token")
-          const next =
-            url.pathname + (url.search ? url.search : "") + url.hash
-          window.history.replaceState({}, "", next)
-          setState("done")
+        if (cancelled) return
+
+        if (attempt.status !== "complete" || !attempt.createdSessionId) {
+          setState("error")
           return
         }
-        setState("error")
+
+        await clerk.setActive({
+          session: attempt.createdSessionId,
+          navigate: async () => {
+            stripSignInTicketFromUrl()
+          },
+        })
+        if (cancelled) return
+
+        stripSignInTicketFromUrl()
+        setState("done")
       } catch {
-        setState("error")
+        if (!cancelled) setState("error")
+      } finally {
+        window.clearTimeout(timeout)
       }
     })()
-  }, [ticket, clerkLoaded, signInLoaded, signIn, setActive, isSignedIn])
 
-  return ticket ? state : "idle"
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [ticket, isLoaded, clerk, isSignedIn])
+
+  if (!ticket || state === "done") {
+    return "idle"
+  }
+  return state
 }
 
 function IdentityProviderInner({ children }: { children: ReactNode }) {
@@ -163,6 +217,7 @@ function IdentityProviderInner({ children }: { children: ReactNode }) {
           type="button"
           className="auth-overlay__btn"
           onClick={() => {
+            stripSignInTicketFromUrl()
             window.location.href = buildIdentitySignInUrl()
           }}
         >

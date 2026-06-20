@@ -58,7 +58,9 @@ createRoot(document.getElementById("root")!).render(
         publishableKey={publishableKey}
         allowedRedirectOrigins={[
           "https://identity.sdee3.com",
+          "https://virgo.sdee3.com",
           "http://localhost:3000",
+          "http://localhost:5173",
         ]}
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>

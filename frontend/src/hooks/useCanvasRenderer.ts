@@ -20,16 +20,21 @@ export function useCanvasRenderer(
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
+    const dpr = window.devicePixelRatio || 1
     const targetW = Math.min(window.innerWidth * 0.55, 320)
     const scale = targetW / img.naturalWidth
     const dims = getCardFrameDimensions(img, scale)
 
-    canvas.width = dims.width
-    canvas.height = dims.height
+    // Backing store is sized in physical pixels (CSS size * DPR) so the card
+    // stays crisp on high-DPR screens; the context is then scaled so all
+    // drawing math below stays in CSS-pixel units.
+    canvas.width = Math.round(dims.width * dpr)
+    canvas.height = Math.round(dims.height * dpr)
     canvas.style.width = `${dims.width}px`
     canvas.style.height = `${dims.height}px`
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, dims.width, dims.height)
 
     drawCardFrame(ctx, img, {
       scale,

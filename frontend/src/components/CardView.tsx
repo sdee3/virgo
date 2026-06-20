@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
+import { cardSrc } from "../lib/cardAsset"
 import { useCanvasRenderer } from "../hooks/useCanvasRenderer"
 import { useCardInteraction } from "../hooks/useCardInteraction"
 import { renderShareImage } from "../lib/renderShareImage"
@@ -98,7 +99,7 @@ export function CardView({
       onCardReady()
       requestAnimationFrame(() => renderCanvas())
     }
-    img.src = `/cards/${cardFile}`
+    img.src = cardSrc(cardFile)
   }, [cardFile, onCardReady, renderCanvas])
 
   const shareButton =

@@ -11,7 +11,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "upscale-cards": "node scripts/upscale-cards.mjs"
   },
   "dependencies": {
     "@clerk/react": "^6.0.0",

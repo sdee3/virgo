@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CARDS } from "../data/cards"
+import { cardSrc } from "../lib/cardAsset"
 import { drawCardFrame, getCardFrameDimensions } from "../lib/drawCardFrame"
 
 const FAN_COUNT = 5
@@ -88,19 +89,21 @@ function FannedCard({
     const img = imageRef.current
     if (!canvas || !img?.naturalWidth) return
 
+    const dpr = window.devicePixelRatio || 1
     const targetW = Math.min(window.innerWidth * 0.38, 160)
     const scale = targetW / img.naturalWidth
     const dims = getCardFrameDimensions(img, scale)
 
-    canvas.width = dims.width
-    canvas.height = dims.height
+    canvas.width = Math.round(dims.width * dpr)
+    canvas.height = Math.round(dims.height * dpr)
     canvas.style.width = `${dims.width}px`
     canvas.style.height = `${dims.height}px`
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, dims.width, dims.height)
     drawCardFrame(ctx, img, { scale, glossOpacity: 0 })
     onDimensions(dims.width, dims.height)
   }, [onDimensions])
@@ -111,7 +114,7 @@ function FannedCard({
       imageRef.current = img
       render()
     }
-    img.src = `/cards/${file}`
+    img.src = cardSrc(file)
     return () => {
       imageRef.current = null
     }

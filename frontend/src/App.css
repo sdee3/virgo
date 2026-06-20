@@ -594,7 +594,9 @@ body {
 .card-canvas {
   display: block;
   will-change: transform;
-  filter: drop-shadow(0 8px 28px rgba(0, 0, 0, 0.6));
+  /* box-shadow (not filter: drop-shadow) so the card isn't rasterized into a
+     CSS-resolution filter buffer and re-blurred on high-DPR mobile screens. */
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
   border-radius: 12px;
 }
 

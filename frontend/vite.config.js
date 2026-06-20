@@ -28,7 +28,24 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        // The @2x cards are large; keep them out of the precache and cache
+        // them on demand the first time a high-DPR device requests one.
+        globIgnores: ['**/cards/2x/**'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/cards/2x/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'card-images-2x',
+              expiration: {
+                maxEntries: 80,
+                maxAgeSeconds: 60 * 60 * 24 * 30
+              },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ]
       }
     })
   ],

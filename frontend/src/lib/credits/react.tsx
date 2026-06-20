@@ -1,3 +1,5 @@
+import { useAuth, useUser } from "@clerk/react";
+import { ConvexProvider, useMutation } from "convex/react";
 import {
   createContext,
   useContext,
@@ -7,16 +9,82 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useAuth } from "@clerk/react";
 import {
   createIdentityCreditsClient,
   type IdentityCreditsClient,
 } from "./client";
 import { CREDIT_CATALOG_FALLBACK } from "./constants";
 import type { CreditCatalog } from "./identityApi";
-import { identityCreditsApi } from "./identityApi";
+import { identityCreditsApi, identityUsersApi } from "./identityApi";
 
 const IdentityCreditsContext = createContext<IdentityCreditsClient | null>(null);
+const IdentityUserReadyContext = createContext(false);
+
+function IdentityConvexScope({ children }: { children: ReactNode }) {
+  const client = useContext(IdentityCreditsContext);
+  if (!client) {
+    return children;
+  }
+  return <ConvexProvider client={client.convex}>{children}</ConvexProvider>;
+}
+
+function IdentityUserSyncEffect({ onReady }: { onReady: () => void }) {
+  const { isSignedIn, user } = useUser();
+  const upsertFromClient = useMutation(identityUsersApi.upsertFromClient);
+  const syncedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isSignedIn || !user) {
+      syncedFor.current = null;
+      return;
+    }
+
+    if (syncedFor.current === user.id) {
+      onReady();
+      return;
+    }
+
+    const email = user.primaryEmailAddress?.emailAddress;
+    if (!email) {
+      return;
+    }
+
+    syncedFor.current = user.id;
+    void upsertFromClient({
+      email,
+      name: user.fullName ?? undefined,
+      imageUrl: user.imageUrl,
+    })
+      .then(() => {
+        onReady();
+      })
+      .catch(() => {
+        syncedFor.current = null;
+      });
+  }, [isSignedIn, user, upsertFromClient, onReady]);
+
+  return null;
+}
+
+function IdentityUserReadyProvider({ children }: { children: ReactNode }) {
+  const { isSignedIn } = useAuth();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      setReady(false);
+    }
+  }, [isSignedIn]);
+
+  return (
+    <IdentityUserReadyContext.Provider value={ready}>
+      <IdentityConvexScope>
+        <IdentityUserSyncEffect onReady={() => setReady(true)} />
+      </IdentityConvexScope>
+      {children}
+    </IdentityUserReadyContext.Provider>
+  );
+}
 
 export function IdentityCreditsProvider({
   children,
@@ -41,13 +109,17 @@ export function IdentityCreditsProvider({
 
   return (
     <IdentityCreditsContext.Provider value={client}>
-      {children}
+      <IdentityUserReadyProvider>{children}</IdentityUserReadyProvider>
     </IdentityCreditsContext.Provider>
   );
 }
 
 export function useIdentityCreditsClient(): IdentityCreditsClient | null {
   return useContext(IdentityCreditsContext);
+}
+
+function useIdentityUserReady(): boolean {
+  return useContext(IdentityUserReadyContext);
 }
 
 export function useCreditsBalance(): {
@@ -57,15 +129,16 @@ export function useCreditsBalance(): {
 } {
   const { isSignedIn } = useAuth();
   const client = useIdentityCreditsClient();
+  const identityReady = useIdentityUserReady();
   const [balance, setBalance] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!client || !isSignedIn) {
+    if (!client || !isSignedIn || !identityReady) {
       setBalance(undefined);
       setError(null);
-      setIsLoading(false);
+      setIsLoading(!isSignedIn ? false : Boolean(client) && !identityReady);
       return;
     }
 
@@ -73,34 +146,28 @@ export function useCreditsBalance(): {
     setIsLoading(true);
     setError(null);
 
-    const watch = client.convex.watchQuery(identityCreditsApi.getBalance, {});
-
-    const applyResult = () => {
-      if (cancelled) return;
-      try {
-        const result = watch.localQueryResult();
-        if (result !== undefined) {
-          setBalance(result.balance);
+    const unsubscribe = client.convex.watchQuery(
+      identityCreditsApi.getBalance,
+      {},
+      (result) => {
+        if (cancelled) return;
+        if (result.type === "success") {
+          setBalance(result.value.balance);
           setIsLoading(false);
           setError(null);
+        } else if (result.type === "error") {
+          setBalance(undefined);
+          setIsLoading(false);
+          setError(result.error.message);
         }
-      } catch (err) {
-        setBalance(undefined);
-        setIsLoading(false);
-        setError(
-          err instanceof Error ? err.message : "Failed to load balance",
-        );
-      }
-    };
-
-    const unsubscribe = watch.onUpdate(applyResult);
-    applyResult();
+      },
+    );
 
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [client, isSignedIn]);
+  }, [client, isSignedIn, identityReady]);
 
   return { balance, isLoading, error };
 }

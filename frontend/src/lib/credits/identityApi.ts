@@ -71,6 +71,19 @@ export type BillingPortalResult = {
   url: string;
 };
 
+export const identityUsersApi = {
+  upsertFromClient: "users:upsertFromClient" as FunctionReference<
+    "mutation",
+    "public",
+    {
+      email: string;
+      name?: string;
+      imageUrl?: string;
+    },
+    string
+  >,
+};
+
 export const identityCreditsApi = {
   getBalance: "credits/queries:getBalance" as FunctionReference<
     "query",

@@ -48,7 +48,7 @@ function buildCardList(): Card[] {
   const cards: Card[] = []
   for (const [num, name] of MAJOR_ARCANA) {
     cards.push({
-      file: `${num}-${name.replace(/\s+/g, "")}.png`,
+      file: `${num}-${name.replace(/\s+/g, "")}.webp`,
       display: name,
     })
   }
@@ -56,7 +56,7 @@ function buildCardList(): Card[] {
     for (let i = 0; i < RANKS.length; i++) {
       const rankNum = String(i + 1).padStart(2, "0")
       cards.push({
-        file: `${suit}${rankNum}.png`,
+        file: `${suit}${rankNum}.webp`,
         display: `${RANKS[i]} of ${suit}`,
       })
     }
@@ -68,5 +68,5 @@ export const CARDS: Card[] = buildCardList()
 
 export function getCardName(file: string): string {
   const card = CARDS.find((c) => c.file === file)
-  return card ? card.display : file.replace(".png", "").replace(/^\d+-/, "")
+  return card ? card.display : file.replace(/\.\w+$/, "").replace(/^\d+-/, "")
 }

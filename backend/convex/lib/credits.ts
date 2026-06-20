@@ -1,4 +1,4 @@
-const SUMMARY_CREDIT_COST = 500;
+const SUMMARY_CREDIT_COST = 800;
 
 /** Debits apply only when CREDITS_ENFORCEMENT is exactly "true". Unset or "false" skips debits. */
 export function isCreditsEnforcementEnabled(): boolean {

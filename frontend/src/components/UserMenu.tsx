@@ -5,9 +5,10 @@ import { UserCircleIcon } from "./UserCircleIcon"
 
 interface UserMenuProps {
   onPastReading: () => void
+  onCredits: () => void
 }
 
-export function UserMenu({ onPastReading }: UserMenuProps) {
+export function UserMenu({ onPastReading, onCredits }: UserMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const { isSignedIn, userLabel, signIn, signOut } = useIdentity()
@@ -39,6 +40,11 @@ export function UserMenu({ onPastReading }: UserMenuProps) {
     onPastReading()
   }
 
+  const handleCredits = () => {
+    setMenuOpen(false)
+    onCredits()
+  }
+
   return (
     <div className="user-menu" ref={menuRef}>
       <button
@@ -62,6 +68,20 @@ export function UserMenu({ onPastReading }: UserMenuProps) {
               <CreditsBadge />
             </div>
           ) : null}
+          <button
+            type="button"
+            className="user-menu__item"
+            onClick={handleCredits}
+          >
+            Credits
+          </button>
+          <button
+            type="button"
+            className="user-menu__item"
+            onClick={handlePastReading}
+          >
+            Past Readings
+          </button>
           {!isSignedIn ? (
             <button
               type="button"
@@ -79,13 +99,6 @@ export function UserMenu({ onPastReading }: UserMenuProps) {
               Sign out
             </button>
           )}
-          <button
-            type="button"
-            className="user-menu__item"
-            onClick={handlePastReading}
-          >
-            Past Readings
-          </button>
         </div>
       )}
     </div>

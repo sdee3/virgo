@@ -3,6 +3,7 @@ import { CARDS } from "./data/cards"
 import { fetchReadings, summarizeCard } from "./lib/api"
 import { BackIcon } from "./components/BackIcon"
 import { CardView } from "./components/CardView"
+import { CreditsPage } from "./components/CreditsPage"
 import { PastReadingsPage } from "./components/PastReadingsPage"
 import { FannedCards, useShowFannedCards } from "./components/FannedCards"
 import { UserMenu } from "./components/UserMenu"
@@ -11,7 +12,7 @@ import { parseCardName } from "./utils/parseCardName"
 import type { StoredReading } from "./types"
 import "./App.css"
 
-type PageView = "home" | "past-readings"
+type PageView = "home" | "past-readings" | "credits"
 
 const PAST_READINGS_PREVIEW = 3
 const PAST_READINGS_FULL = 100
@@ -141,6 +142,16 @@ export default function App() {
     setViewingPast(false)
   }, [])
 
+  const openCreditsPage = useCallback(() => {
+    setPageView("credits")
+    setCardFile(null)
+    setCardName("")
+    setSummary(null)
+    setSummaryError(null)
+    setRemaining(null)
+    setViewingPast(false)
+  }, [])
+
   const handleSeeMorePast = useCallback(() => {
     setShowAllPastReadings(true)
   }, [])
@@ -159,9 +170,12 @@ export default function App() {
   )
 
   const showPastReadingsPage = pageView === "past-readings" && !cardFile
+  const showCreditsPage = pageView === "credits" && !cardFile
   const isHomepage = !cardFile && pageView === "home"
   const showFannedCards = useShowFannedCards()
-  const userMenu = <UserMenu onPastReading={openPastReadingsPage} />
+  const userMenu = (
+    <UserMenu onPastReading={openPastReadingsPage} onCredits={openCreditsPage} />
+  )
 
   const blessing = (
     <p className="blessing">blessed by the Creator of All That Is</p>
@@ -183,6 +197,8 @@ export default function App() {
           onSeeMore={handleSeeMorePast}
           toolbarEnd={userMenu}
         />
+      ) : showCreditsPage ? (
+        <CreditsPage onBack={backToHome} toolbarEnd={userMenu} />
       ) : !cardFile ? (
         <>
           <div className="idle-content">

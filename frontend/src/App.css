@@ -224,6 +224,11 @@ body {
   color: #d4d8e0;
 }
 
+.user-menu__item--sign-out {
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
 .credits-page {
   display: flex;
   flex-direction: column;

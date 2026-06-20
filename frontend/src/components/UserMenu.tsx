@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react"
 import { useIdentity } from "../lib/identityContext"
-import { CreditsBadge } from "../lib/credits/CreditsBadge"
 import { UserCircleIcon } from "./UserCircleIcon"
 
 interface UserMenuProps {
@@ -63,24 +62,19 @@ export function UserMenu({ onPastReading, onCredits }: UserMenuProps) {
               {userLabel}
             </p>
           ) : null}
-          {isSignedIn ? (
-            <div className="user-menu__item user-menu__item--static">
-              <CreditsBadge />
-            </div>
-          ) : null}
-          <button
-            type="button"
-            className="user-menu__item"
-            onClick={handleCredits}
-          >
-            Credits
-          </button>
           <button
             type="button"
             className="user-menu__item"
             onClick={handlePastReading}
           >
             Past Readings
+          </button>
+          <button
+            type="button"
+            className="user-menu__item"
+            onClick={handleCredits}
+          >
+            Credits
           </button>
           {!isSignedIn ? (
             <button
@@ -93,7 +87,7 @@ export function UserMenu({ onPastReading, onCredits }: UserMenuProps) {
           ) : (
             <button
               type="button"
-              className="user-menu__item"
+              className="user-menu__item user-menu__item--sign-out"
               onClick={handleSignOut}
             >
               Sign out

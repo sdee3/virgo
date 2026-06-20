@@ -58,47 +58,51 @@ export function UserMenu({ onPastReading, onCredits }: UserMenuProps) {
       </button>
       {menuOpen && (
         <div className="user-menu__dropdown">
-          {isSignedIn && userLabel ? (
-            <p className="user-menu__label" title={userLabel}>
-              {userLabel}
-            </p>
-          ) : null}
           {isSignedIn ? (
-            <p className="user-menu__credits">
+            <div className="user-menu__header">
+              {userLabel ? (
+                <p className="user-menu__label" title={userLabel}>
+                  {userLabel}
+                </p>
+              ) : null}
               <CreditsBadge />
-            </p>
+            </div>
           ) : null}
-          <button
-            type="button"
-            className="user-menu__item"
-            onClick={handlePastReading}
-          >
-            Past Readings
-          </button>
-          <button
-            type="button"
-            className="user-menu__item"
-            onClick={handleCredits}
-          >
-            Credits
-          </button>
-          {!isSignedIn ? (
+          <div className="user-menu__actions">
             <button
               type="button"
               className="user-menu__item"
-              onClick={handleLoginRegister}
+              onClick={handlePastReading}
             >
-              Login/Register
+              Past Readings
             </button>
-          ) : (
-            <button
-              type="button"
-              className="user-menu__item user-menu__item--sign-out"
-              onClick={handleSignOut}
-            >
-              Sign out
-            </button>
-          )}
+            {isSignedIn ? (
+              <button
+                type="button"
+                className="user-menu__item"
+                onClick={handleCredits}
+              >
+                Credits
+              </button>
+            ) : null}
+            {!isSignedIn ? (
+              <button
+                type="button"
+                className="user-menu__item"
+                onClick={handleLoginRegister}
+              >
+                Login/Register
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="user-menu__item user-menu__item--sign-out"
+                onClick={handleSignOut}
+              >
+                Sign out
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

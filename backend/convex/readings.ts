@@ -26,6 +26,9 @@ export const saveReading = mutation({
     cardName: v.string(),
     summary: v.string(),
     drawnAt: v.number(),
+    contextType: v.optional(v.literal("dating-match")),
+    sourceApp: v.optional(v.string()),
+    targetProfileId: v.optional(v.string()),
   },
   returns: v.id("readings"),
   handler: async (ctx, args) => {
@@ -35,6 +38,9 @@ export const saveReading = mutation({
       cardName: args.cardName,
       summary: args.summary,
       drawnAt: args.drawnAt,
+      contextType: args.contextType,
+      sourceApp: args.sourceApp,
+      targetProfileId: args.targetProfileId,
     })
   },
 })

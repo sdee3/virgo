@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useIdentity } from "../lib/identityContext"
+import { CreditsBadge } from "../lib/credits/CreditsBadge"
 import { UserCircleIcon } from "./UserCircleIcon"
 
 interface UserMenuProps {
@@ -55,6 +56,11 @@ export function UserMenu({ onPastReading }: UserMenuProps) {
             <p className="user-menu__label" title={userLabel}>
               {userLabel}
             </p>
+          ) : null}
+          {isSignedIn ? (
+            <div className="user-menu__item user-menu__item--static">
+              <CreditsBadge />
+            </div>
           ) : null}
           {!isSignedIn ? (
             <button

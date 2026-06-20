@@ -73,22 +73,28 @@ export function useCreditsBalance(): {
     setIsLoading(true);
     setError(null);
 
-    const unsubscribe = client.convex.watchQuery(
-      identityCreditsApi.getBalance,
-      {},
-      (result) => {
-        if (cancelled) return;
-        if (result.type === "success") {
-          setBalance(result.value.balance);
+    const watch = client.convex.watchQuery(identityCreditsApi.getBalance, {});
+
+    const applyResult = () => {
+      if (cancelled) return;
+      try {
+        const result = watch.localQueryResult();
+        if (result !== undefined) {
+          setBalance(result.balance);
           setIsLoading(false);
           setError(null);
-        } else if (result.type === "error") {
-          setBalance(undefined);
-          setIsLoading(false);
-          setError(result.error.message);
         }
-      },
-    );
+      } catch (err) {
+        setBalance(undefined);
+        setIsLoading(false);
+        setError(
+          err instanceof Error ? err.message : "Failed to load balance",
+        );
+      }
+    };
+
+    const unsubscribe = watch.onUpdate(applyResult);
+    applyResult();
 
     return () => {
       cancelled = true;

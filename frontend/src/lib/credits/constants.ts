@@ -1,7 +1,7 @@
 import type { CreditCatalog } from "@sdee3/credits";
 
 /** Credits deducted per tarot reading in Virgo. */
-export const VIRGO_READING_CREDIT_COST = 800;
+export const VIRGO_READING_CREDIT_COST = 200;
 
 /** Shown when the Identity catalog query is unavailable. */
 export const CREDIT_CATALOG_FALLBACK: CreditCatalog = {

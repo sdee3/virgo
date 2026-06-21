@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@clerk/react": "^6.0.0",
+    "@sdee3/credits": "file:../../identity/packages/credits",
     "convex": "^1.41.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"

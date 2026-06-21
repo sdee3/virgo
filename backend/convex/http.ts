@@ -5,6 +5,7 @@ import { getClerkUserIdOrNull } from "./lib/auth"
 import {
   debitCreditsForUser,
   isCreditsEnforcementEnabled,
+  refundSummaryDebit,
   SUMMARY_CREDIT_COST,
 } from "./lib/credits"
 
@@ -412,29 +413,14 @@ http.route({
       ? "virgo.dating_match_summary"
       : "virgo.card_summary"
 
-    if (clerkUserId && isCreditsEnforcementEnabled()) {
-      const idempotencyKey = `virgo:summary:${clerkUserId}:${body.drawnAt ?? Date.now()}:${body.cardName}`
-      try {
-        await debitCreditsForUser({
-          clerkUserId,
-          amount: SUMMARY_CREDIT_COST,
-          reason: creditReason,
-          idempotencyKey,
-          metadata: {
-            cardName: body.cardName,
-            ...(datingContext ? { contextType: "dating-match" } : {}),
-          },
-        })
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Insufficient credits"
-        const status = message.includes("Insufficient") ? 402 : 503
-        return new Response(JSON.stringify({ error: message }), {
-          status,
-          headers,
-        })
-      }
-    }
+    const drawnAt =
+      typeof body.drawnAt === "number" && Number.isFinite(body.drawnAt)
+        ? body.drawnAt
+        : Date.now()
+
+    const idempotencyKey = clerkUserId
+      ? `virgo:summary:${clerkUserId}:${drawnAt}:${body.cardName}`
+      : null
 
     const model = process.env.OPENROUTER_MODEL
     const apiKey = process.env.OPENROUTER_API_KEY
@@ -446,69 +432,124 @@ http.route({
       )
     }
 
+    let debited = false
+    const debitMetadata = {
+      cardName: body.cardName,
+      ...(datingContext ? { contextType: "dating-match" } : {}),
+    }
+
+    if (clerkUserId && isCreditsEnforcementEnabled() && idempotencyKey) {
+      try {
+        await debitCreditsForUser({
+          clerkUserId,
+          amount: SUMMARY_CREDIT_COST,
+          reason: creditReason,
+          idempotencyKey,
+          metadata: debitMetadata,
+        })
+        debited = true
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Insufficient credits"
+        const status = message.includes("Insufficient") ? 402 : 503
+        return new Response(JSON.stringify({ error: message }), {
+          status,
+          headers,
+        })
+      }
+    }
+
     const userMessage = datingContext
       ? buildDatingMatchUserMessage(body.cardName, datingContext)
       : `Card drawn: ${body.cardName}
 The user has drawn this card seeking guidance on a question in their life. Speak to the card's general wisdom — its energy, themes, and what reflection it invites.${body.cardName.startsWith("Reversed ") ? " Since the card is reversed, address how its energy may be blocked, internalized, or requiring deeper introspection." : ""}`
 
-    const openRouterResponse = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer":
-            process.env.OPENROUTER_REFERER ?? "https://virgo.sdee3.com",
-          "X-OpenRouter-Title": process.env.OPENROUTER_TITLE ?? "Virgo",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an intuitive tarot reader. Provide insightful card interpretations in a warm, reflective tone. Write in second person to make the reading feel personal and direct. Each reading should be 2-3 sentences.",
-            },
-            {
-              role: "user",
-              content: userMessage,
-            },
-          ],
-          service_tier: "flex",
-          max_tokens: 200,
-        }),
-      },
-    )
+    async function refundIfDebited(): Promise<void> {
+      if (!debited || !clerkUserId || !idempotencyKey) {
+        return
+      }
+      await refundSummaryDebit({
+        clerkUserId,
+        amount: SUMMARY_CREDIT_COST,
+        creditReason,
+        debitIdempotencyKey: idempotencyKey,
+        metadata: debitMetadata,
+      })
+    }
 
-    if (!openRouterResponse.ok) {
-      const errorBody = await openRouterResponse.text()
-      console.error("OpenRouter error:", openRouterResponse.status, errorBody)
+    let summary: string
+    try {
+      const openRouterResponse = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer":
+              process.env.OPENROUTER_REFERER ?? "https://virgo.sdee3.com",
+            "X-OpenRouter-Title": process.env.OPENROUTER_TITLE ?? "Virgo",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are an intuitive tarot reader. Provide insightful card interpretations in a warm, reflective tone. Write in second person to make the reading feel personal and direct. Each reading should be 2-3 sentences.",
+              },
+              {
+                role: "user",
+                content: userMessage,
+              },
+            ],
+            service_tier: "flex",
+            max_tokens: 200,
+          }),
+        },
+      )
+
+      if (!openRouterResponse.ok) {
+        const errorBody = await openRouterResponse.text()
+        console.error("OpenRouter error:", openRouterResponse.status, errorBody)
+        await refundIfDebited()
+        return new Response(
+          JSON.stringify({ error: "Failed to get card interpretation." }),
+          { status: 502, headers },
+        )
+      }
+
+      const data = await openRouterResponse.json()
+      summary =
+        data.choices?.[0]?.message?.content ?? "No interpretation available."
+    } catch (error) {
+      console.error("OpenRouter request failed:", error)
+      await refundIfDebited()
       return new Response(
         JSON.stringify({ error: "Failed to get card interpretation." }),
         { status: 502, headers },
       )
     }
 
-    const data = await openRouterResponse.json()
-    const summary =
-      data.choices?.[0]?.message?.content ?? "No interpretation available."
-
-    const drawnAt =
-      typeof body.drawnAt === "number" && Number.isFinite(body.drawnAt)
-        ? body.drawnAt
-        : Date.now()
-
-    await ctx.runMutation(api.readings.saveReading, {
-      deviceId: deviceId ?? `user:${clerkUserId}`,
-      clerkUserId: clerkUserId ?? undefined,
-      cardName: body.cardName,
-      summary,
-      drawnAt,
-      contextType: datingContext ? "dating-match" : undefined,
-      sourceApp: datingContext?.sourceApp,
-      targetProfileId: datingContext?.targetProfileId,
-    })
+    try {
+      await ctx.runMutation(api.readings.saveReading, {
+        deviceId: deviceId ?? `user:${clerkUserId}`,
+        clerkUserId: clerkUserId ?? undefined,
+        cardName: body.cardName,
+        summary,
+        drawnAt,
+        contextType: datingContext ? "dating-match" : undefined,
+        sourceApp: datingContext?.sourceApp,
+        targetProfileId: datingContext?.targetProfileId,
+      })
+    } catch (error) {
+      console.error("Failed to save reading:", error)
+      await refundIfDebited()
+      return new Response(
+        JSON.stringify({ error: "Failed to save card reading." }),
+        { status: 500, headers },
+      )
+    }
 
     return new Response(JSON.stringify({ summary, remaining }), { headers })
   }),

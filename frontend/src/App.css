@@ -597,6 +597,23 @@ body {
   line-height: 1.5;
 }
 
+.subtitle--error {
+  color: #fda085;
+  font-style: normal;
+  font-size: 0.95rem;
+  margin-top: -24px;
+}
+
+.subtitle-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #fda085;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .app--idle {
   overflow: hidden;
 }

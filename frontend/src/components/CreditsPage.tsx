@@ -6,14 +6,14 @@ import { useIdentity } from "../lib/identityContext"
 import { VIRGO_READING_CREDIT_COST } from "../lib/credits/constants"
 import {
   identityApi,
+  IdentityConvexScope,
+  identityConvex,
+  identityCreditsEnabled,
+  useIdentityUserReady,
+  type CreditLedgerEntry,
   type CreditPack,
   type CreditPriceKey,
-} from "../lib/identity-api"
-import {
-  IdentityConvexScope,
-  identityCreditsEnabled,
-} from "../lib/identityConvex"
-import { useIdentityUserReady } from "../lib/identityUserSync"
+} from "../lib/identitySetup"
 
 interface CreditsPageProps {
   onBack: () => void
@@ -26,6 +26,45 @@ function formatUsd(amount: number): string {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(amount)
+}
+
+function formatDate(timestamp: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(timestamp))
+}
+
+function ledgerLabel(entry: CreditLedgerEntry): string {
+  if (entry.reason.trim()) {
+    return entry.reason
+  }
+  switch (entry.type) {
+    case "grant":
+      return "Credits added"
+    case "debit":
+      return "Credits used"
+    case "refund":
+      return "Refund"
+    case "adjustment":
+      return "Balance adjustment"
+  }
+}
+
+function appLabel(appSlug: CreditLedgerEntry["appSlug"]): string | null {
+  if (!appSlug) {
+    return null
+  }
+  switch (appSlug) {
+    case "debates":
+      return "AI Debates"
+    case "virgo":
+      return "Virgo"
+    case "astro-mate":
+      return "Astro Mate"
+    case "portfolio":
+      return "Portfolio"
+  }
 }
 
 function ProductCard({
@@ -70,7 +109,7 @@ export function CreditsPage({ onBack, toolbarEnd }: CreditsPageProps) {
   }
 
   return (
-    <IdentityConvexScope>
+    <IdentityConvexScope identityConvex={identityConvex}>
       <CreditsPageInner onBack={onBack} toolbarEnd={toolbarEnd} />
     </IdentityConvexScope>
   )
@@ -116,6 +155,12 @@ function CreditsPageInner({ onBack, toolbarEnd }: CreditsPageProps) {
   const balance = useQuery(
     identityApi.credits.queries.getBalance,
     clerkSignedIn && identityReady ? {} : "skip",
+  )
+  const ledger = useQuery(
+    identityApi.credits.queries.listLedger,
+    clerkSignedIn && identityReady
+      ? { paginationOpts: { numItems: 25, cursor: null } }
+      : "skip",
   )
   const createCheckout = useAction(
     identityApi.credits.stripeCheckout.createCheckoutSession,
@@ -285,7 +330,44 @@ function CreditsPageInner({ onBack, toolbarEnd }: CreditsPageProps) {
 
       <section className="credits-section">
         <h2 className="credits-section__heading">Transaction history</h2>
-        <p className="credits-page__notice">Coming soon</p>
+        {!isSignedIn ? (
+          <p className="credits-page__notice">
+            Sign in to view your transaction history.
+          </p>
+        ) : ledger === undefined ? (
+          <p className="credits-page__notice">Loading transactions…</p>
+        ) : ledger.page.length === 0 ? (
+          <p className="credits-page__notice">
+            No transactions yet. Purchase credits or draw a card to see activity
+            here.
+          </p>
+        ) : (
+          <ul className="credits-ledger">
+            {ledger.page.map((entry) => (
+              <li key={entry._id} className="credits-ledger__item">
+                <div className="credits-ledger__main">
+                  <span className="credits-ledger__reason">
+                    {ledgerLabel(entry)}
+                    {appLabel(entry.appSlug) ? ` · ${appLabel(entry.appSlug)}` : ""}
+                  </span>
+                  <span className="credits-ledger__date">
+                    {formatDate(entry.createdAt)}
+                  </span>
+                </div>
+                <span
+                  className={`credits-ledger__amount ${
+                    entry.amount >= 0
+                      ? "credits-ledger__amount--credit"
+                      : "credits-ledger__amount--debit"
+                  }`}
+                >
+                  {entry.amount >= 0 ? "+" : ""}
+                  {entry.amount.toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </CreditsPageShell>
   )

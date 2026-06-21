@@ -11,6 +11,9 @@ importers:
       '@clerk/react':
         specifier: ^6.0.0
         version: 6.7.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@sdee3/credits':
+        specifier: file:../../identity/packages/credits
+        version: file:../../identity/packages/credits(@clerk/react@6.7.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(convex@1.41.0(@clerk/react@6.7.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       convex:
         specifier: ^1.41.0
         version: 1.41.0(@clerk/react@6.7.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)
@@ -1052,6 +1055,14 @@ packages:
     resolution: {integrity: sha512-hPt/bgL5cE+Qp+/TPHBqptcAgPzgj46mPcg/16zNUmbQk0j+mOEQV/+Lqu8QRtDV3Ek95Q6FeFITpuhl6OTsAA==}
     cpu: [x64]
     os: [win32]
+
+  '@sdee3/credits@file:../../identity/packages/credits':
+    resolution: {directory: ../../identity/packages/credits, type: directory}
+    peerDependencies:
+      '@clerk/react': ^6.0.0
+      convex: ^1.41.0
+      react: ^19.0.0
+      react-dom: ^19.0.0
 
   '@tanstack/query-core@5.101.0':
     resolution: {integrity: sha512-cQetA74EB+seWySv1TTKr828TnP0u39m6LykwDXIo84SNortpDkp30TMEjkqtYCNP9c40uT/iwl6MLiufEt0Ow==}
@@ -3161,6 +3172,13 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.60.3':
     optional: true
+
+  '@sdee3/credits@file:../../identity/packages/credits(@clerk/react@6.7.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(convex@1.41.0(@clerk/react@6.7.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      '@clerk/react': 6.7.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      convex: 1.41.0(@clerk/react@6.7.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
 
   '@tanstack/query-core@5.101.0': {}
 

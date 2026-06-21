@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react"
+import { useQuery } from "convex/react"
 import { CARDS } from "./data/cards"
 import { fetchReadings, summarizeCard } from "./lib/api"
 import { BackIcon } from "./components/BackIcon"
@@ -8,6 +9,15 @@ import { PastReadingsPage } from "./components/PastReadingsPage"
 import { FannedCards, useShowFannedCards } from "./components/FannedCards"
 import { UserMenu } from "./components/UserMenu"
 import { useIdentity } from "./lib/identityContext"
+import { VIRGO_READING_CREDIT_COST } from "./lib/credits/constants"
+import {
+  identityApi,
+  IdentityConvexScope,
+  identityConvex,
+  identityCreditsEnabled,
+  refreshCreditsBalance,
+  useIdentityUserReady,
+} from "./lib/identitySetup"
 import { parseCardName } from "./utils/parseCardName"
 import type { StoredReading } from "./types"
 import "./App.css"
@@ -17,8 +27,25 @@ type PageView = "home" | "past-readings" | "credits"
 const PAST_READINGS_PREVIEW = 3
 const PAST_READINGS_FULL = 100
 
-export default function App() {
+function AppInner() {
   const { isSignedIn } = useIdentity()
+  const identityReady = useIdentityUserReady()
+  const balance = useQuery(
+    identityApi.credits.queries.getBalance,
+    identityCreditsEnabled && isSignedIn && identityReady ? {} : "skip",
+  )
+  const catalog = useQuery(
+    identityApi.credits.products.getCatalog,
+    identityCreditsEnabled ? {} : "skip",
+  )
+  const tarotCost =
+    catalog?.actionCosts.virgo_tarot_draw ?? VIRGO_READING_CREDIT_COST
+  const creditsKnown = !identityCreditsEnabled || !isSignedIn || balance !== undefined
+  const hasEnoughCredits =
+    !identityCreditsEnabled ||
+    !isSignedIn ||
+    balance === undefined ||
+    balance.balance >= tarotCost
   const [pageView, setPageView] = useState<PageView>("home")
   const [cardFile, setCardFile] = useState<string | null>(null)
   const [cardName, setCardName] = useState("")
@@ -68,6 +95,26 @@ export default function App() {
   }, [cardFile])
 
   const drawCard = useCallback(() => {
+    if (
+      identityCreditsEnabled &&
+      isSignedIn &&
+      balance !== undefined &&
+      balance.balance < tarotCost
+    ) {
+      setPageView("home")
+      setViewingPast(false)
+      setCardFile(null)
+      setCardName("")
+      setIsDrawing(false)
+      setIsSummarizing(false)
+      setSummary(null)
+      setSummaryError(
+        `Not enough credits. You need ${tarotCost.toLocaleString()} credits but have ${balance.balance.toLocaleString()}.`,
+      )
+      setRemaining(null)
+      return
+    }
+
     setPageView("home")
     setViewingPast(false)
     setIsDrawing(true)
@@ -89,9 +136,11 @@ export default function App() {
       .then((data) => {
         setSummary(data.summary)
         setRemaining(data.remaining)
+        void refreshCreditsBalance()
         void loadPastReadings(showAllPastReadings)
       })
       .catch((err: Error) => {
+        void refreshCreditsBalance()
         setSummaryError(
           err.message || "Could not connect to the reading service.",
         )
@@ -99,7 +148,13 @@ export default function App() {
       .finally(() => {
         setIsSummarizing(false)
       })
-  }, [loadPastReadings, showAllPastReadings])
+  }, [
+    balance,
+    isSignedIn,
+    loadPastReadings,
+    showAllPastReadings,
+    tarotCost,
+  ])
 
   const handleCardReady = useCallback(() => {
     setIsDrawing(false)
@@ -204,9 +259,29 @@ export default function App() {
           <div className="idle-content">
             {appTitle}
             <p className="subtitle">What question is on your mind?</p>
-            <button className="draw-btn" onClick={drawCard} disabled={isDrawing}>
+            <button
+              className="draw-btn"
+              onClick={drawCard}
+              disabled={isDrawing || (isSignedIn && !creditsKnown) || !hasEnoughCredits}
+            >
               Pull a card
             </button>
+            {identityCreditsEnabled &&
+            isSignedIn &&
+            creditsKnown &&
+            !hasEnoughCredits ? (
+              <p className="subtitle subtitle--error">
+                Not enough credits for a reading ({tarotCost.toLocaleString()}{" "}
+                required).{" "}
+                <button
+                  type="button"
+                  className="subtitle-link"
+                  onClick={openCreditsPage}
+                >
+                  Top up credits
+                </button>
+              </p>
+            ) : null}
           </div>
           {showFannedCards ? (
             <div className="idle-footer">
@@ -260,4 +335,16 @@ export default function App() {
       {!isHomepage && blessing}
     </div>
   )
+}
+
+export default function App() {
+  if (identityCreditsEnabled) {
+    return (
+      <IdentityConvexScope identityConvex={identityConvex}>
+        <AppInner />
+      </IdentityConvexScope>
+    )
+  }
+
+  return <AppInner />
 }

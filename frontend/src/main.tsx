@@ -6,10 +6,12 @@ import { ConvexReactClient } from "convex/react"
 import App from "./App"
 import { IdentityProvider, identityEnabled } from "./lib/identityContext"
 import {
+  identityApi,
   IdentityConvexAuthSync,
+  identityConvex,
   identityCreditsEnabled,
-} from "./lib/identityConvex"
-import { IdentityUserReadyProvider } from "./lib/identityUserSync"
+  IdentityUserReadyProvider,
+} from "./lib/identitySetup"
 import "./App.css"
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined
@@ -31,7 +33,14 @@ function Root() {
     return app
   }
 
-  return <IdentityUserReadyProvider>{app}</IdentityUserReadyProvider>
+  return (
+    <IdentityUserReadyProvider
+      upsertFromClient={identityApi.users.upsertFromClient}
+      identityConvex={identityConvex}
+    >
+      {app}
+    </IdentityUserReadyProvider>
+  )
 }
 
 const app = <Root />
@@ -49,7 +58,9 @@ createRoot(document.getElementById("root")!).render(
         ]}
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          {identityCreditsEnabled ? <IdentityConvexAuthSync /> : null}
+          {identityCreditsEnabled ? (
+            <IdentityConvexAuthSync identityConvex={identityConvex} />
+          ) : null}
           {app}
         </ConvexProviderWithClerk>
       </ClerkProvider>

@@ -1,8 +1,12 @@
 import { useAuth } from "@clerk/react"
 import { useQuery } from "convex/react"
-import { identityApi } from "../identity-api"
-import { IdentityConvexScope, identityCreditsEnabled } from "../identityConvex"
-import { useIdentityUserReady } from "../identityUserSync"
+import {
+  identityApi,
+  IdentityConvexScope,
+  identityConvex,
+  identityCreditsEnabled,
+  useIdentityUserReady,
+} from "../identitySetup"
 
 function CreditsBadgeInner() {
   const { isSignedIn } = useAuth()
@@ -29,7 +33,7 @@ export function CreditsBadge() {
   }
 
   return (
-    <IdentityConvexScope>
+    <IdentityConvexScope identityConvex={identityConvex}>
       <CreditsBadgeInner />
     </IdentityConvexScope>
   )

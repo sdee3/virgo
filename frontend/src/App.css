@@ -15,17 +15,19 @@ html {
 }
 
 body {
-  background: #0f1b2d;
-  color: #d4d8e0;
-  font-family: "Nunito", "Segoe UI", sans-serif;
+  margin: 0;
   min-height: 100dvh;
-  overflow-x: hidden;
-  display: flex;
-  justify-content: center;
 }
 
 #root {
   width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
+  background: #0f1b2d;
+  color: #d4d8e0;
+  font-family: "Nunito", "Segoe UI", sans-serif;
 }
 
 .app {

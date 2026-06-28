@@ -1,10 +1,11 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { ClerkProvider, useAuth } from "@clerk/react"
-import { ConvexProviderWithClerk } from "convex/react-clerk"
+import { ClerkProvider } from "@clerk/react"
 import { ConvexReactClient } from "convex/react"
 import App from "./App"
-import { IdentityProvider, identityEnabled } from "./lib/identityContext"
+import { AuthShell } from "./components/auth/AuthShell"
+import { IdentityProvider } from "./lib/identityContext"
+import { ConvexProviderWithClerkTemplate } from "./lib/convexClerkAuth"
 import {
   identityApi,
   IdentityConvexAuthSync,
@@ -14,19 +15,26 @@ import {
 } from "./lib/identitySetup"
 import "./App.css"
 
-const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined
-const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
-  | string
-  | undefined
+const convexUrl = import.meta.env.VITE_CONVEX_URL as string
+const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string
+const signInUrl = import.meta.env.VITE_CLERK_SIGN_IN_URL as string
+const signUpUrl = import.meta.env.VITE_CLERK_SIGN_UP_URL as string
 
-const convex =
-  identityEnabled && convexUrl ? new ConvexReactClient(convexUrl) : null
+if (!convexUrl || !publishableKey || !signInUrl || !signUpUrl) {
+  throw new Error(
+    "Missing VITE_CONVEX_URL, VITE_CLERK_PUBLISHABLE_KEY, VITE_CLERK_SIGN_IN_URL, or VITE_CLERK_SIGN_UP_URL. Copy env vars into frontend/.env.local",
+  )
+}
+
+const convex = new ConvexReactClient(convexUrl)
 
 function Root() {
   const app = (
-    <IdentityProvider>
-      <App />
-    </IdentityProvider>
+    <AuthShell>
+      <IdentityProvider>
+        <App />
+      </IdentityProvider>
+    </AuthShell>
   )
 
   if (!identityCreditsEnabled) {
@@ -43,29 +51,24 @@ function Root() {
   )
 }
 
-const app = <Root />
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {identityEnabled && convex && publishableKey ? (
-      <ClerkProvider
-        publishableKey={publishableKey}
-        allowedRedirectOrigins={[
-          "https://identity.sdee3.com",
-          "https://virgo.sdee3.com",
-          "http://localhost:3000",
-          "http://localhost:5173",
-        ]}
-      >
-        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          {identityCreditsEnabled ? (
-            <IdentityConvexAuthSync identityConvex={identityConvex} />
-          ) : null}
-          {app}
-        </ConvexProviderWithClerk>
-      </ClerkProvider>
-    ) : (
-      app
-    )}
+    <ClerkProvider
+      publishableKey={publishableKey}
+      allowedRedirectOrigins={[
+        "https://identity.sdee3.com",
+        "https://virgo.sdee3.com",
+        "https://winning-jaybird-28.accounts.dev",
+        "http://localhost:3000",
+        "http://localhost:5173",
+      ]}
+    >
+      <ConvexProviderWithClerkTemplate client={convex}>
+        {identityCreditsEnabled ? (
+          <IdentityConvexAuthSync identityConvex={identityConvex} />
+        ) : null}
+        <Root />
+      </ConvexProviderWithClerkTemplate>
+    </ClerkProvider>
   </StrictMode>,
 )

@@ -1,2 +1,14 @@
 allowBuilds:
+  bufferutil: true
+  core-js: true
   esbuild: true
+  utf-8-validate: true
+
+overrides:
+  glob: ^13.0.6
+  source-map: ^0.7.6
+  uuid: ^11.1.0
+
+peerDependencyRules:
+  allowedVersions:
+    utf-8-validate: "6"

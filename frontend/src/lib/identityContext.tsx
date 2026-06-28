@@ -1,4 +1,4 @@
-import { useAuth, useClerk, useUser } from "@clerk/react"
+import { useAuth, useUser } from "@clerk/react"
 import {
   createContext,
   useContext,
@@ -8,19 +8,12 @@ import {
   type ReactNode,
 } from "react"
 import { useConvexAuth, useMutation } from "convex/react"
-import {
-  stripSignInTicketFromUrl,
-  useSignInTokenHandoff,
-} from "@sdee3/credits"
 import { api } from "@convex-api"
 import { getDeviceId } from "./deviceId"
 import { buildIdentitySignInUrl } from "./identitySetup"
 import { setAuthTokenGetter } from "./authToken"
 
-export const identityEnabled = Boolean(
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY &&
-    import.meta.env.VITE_CONVEX_URL,
-)
+export const identityEnabled = true
 
 type IdentityContextValue = {
   enabled: boolean
@@ -31,29 +24,20 @@ type IdentityContextValue = {
   signOut: () => Promise<void>
 }
 
-const disabledValue: IdentityContextValue = {
-  enabled: false,
-  isLoaded: true,
-  isSignedIn: false,
-  userLabel: null,
-  signIn: () => {
-    window.location.href = buildIdentitySignInUrl()
-  },
-  signOut: async () => {},
-}
-
-const IdentityContext = createContext<IdentityContextValue>(disabledValue)
+const IdentityContext = createContext<IdentityContextValue | null>(null)
 
 export function useIdentity(): IdentityContextValue {
-  return useContext(IdentityContext)
+  const value = useContext(IdentityContext)
+  if (!value) {
+    throw new Error("useIdentity must be used within IdentityProvider")
+  }
+  return value
 }
 
-function IdentityProviderInner({ children }: { children: ReactNode }) {
-  const { isLoaded, isSignedIn, getToken } = useAuth()
+export function IdentityProvider({ children }: { children: ReactNode }) {
+  const { isLoaded, isSignedIn, getToken, signOut } = useAuth()
   const { user } = useUser()
-  const clerk = useClerk()
   const { isAuthenticated } = useConvexAuth()
-  const handoff = useSignInTokenHandoff()
   const linkDevice = useMutation(api.readings.linkDeviceToUser)
   const linked = useRef(false)
 
@@ -84,54 +68,16 @@ function IdentityProviderInner({ children }: { children: ReactNode }) {
         user?.username ??
         null,
       signIn: () => {
-        window.location.href = buildIdentitySignInUrl()
+        window.location.replace(buildIdentitySignInUrl())
       },
       signOut: async () => {
-        await clerk.signOut()
+        await signOut({ redirectUrl: buildIdentitySignInUrl() })
       },
     }),
-    [isLoaded, isSignedIn, user, clerk],
+    [isLoaded, isSignedIn, user, signOut],
   )
-
-  if (handoff === "pending") {
-    return (
-      <div className="auth-overlay">
-        <p className="auth-overlay__message">Signing you in…</p>
-      </div>
-    )
-  }
-
-  if (handoff === "error") {
-    return (
-      <div className="auth-overlay">
-        <p className="auth-overlay__message">Sign-in link expired or invalid.</p>
-        <button
-          type="button"
-          className="auth-overlay__btn"
-          onClick={() => {
-            stripSignInTicketFromUrl()
-            window.location.href = buildIdentitySignInUrl()
-          }}
-        >
-          Try again
-        </button>
-      </div>
-    )
-  }
 
   return (
     <IdentityContext.Provider value={value}>{children}</IdentityContext.Provider>
   )
-}
-
-export function IdentityProvider({ children }: { children: ReactNode }) {
-  if (!identityEnabled) {
-    return (
-      <IdentityContext.Provider value={disabledValue}>
-        {children}
-      </IdentityContext.Provider>
-    )
-  }
-
-  return <IdentityProviderInner>{children}</IdentityProviderInner>
 }

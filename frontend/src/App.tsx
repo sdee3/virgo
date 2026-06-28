@@ -9,6 +9,7 @@ import { PastReadingsPage } from "./components/PastReadingsPage"
 import { FannedCards, useShowFannedCards } from "./components/FannedCards"
 import { UserMenu } from "./components/UserMenu"
 import { useIdentity } from "./lib/identityContext"
+import { getAuthToken } from "./lib/authToken"
 import { VIRGO_READING_CREDIT_COST } from "./lib/credits/constants"
 import {
   identityApi,
@@ -132,22 +133,36 @@ function AppInner() {
     isReversedRef.current = reversed
 
     setIsSummarizing(true)
-    summarizeCard(name, drawnAtRef.current)
-      .then((data) => {
+    void (async () => {
+      if (identityCreditsEnabled && isSignedIn) {
+        const token = await getAuthToken()
+        if (!token) {
+          setIsDrawing(false)
+          setIsSummarizing(false)
+          setSummaryError(
+            "Sign-in is still loading. Please wait a moment and try again.",
+          )
+          return
+        }
+      }
+
+      try {
+        const data = await summarizeCard(name, drawnAtRef.current)
         setSummary(data.summary)
         setRemaining(data.remaining)
         void refreshCreditsBalance()
         void loadPastReadings(showAllPastReadings)
-      })
-      .catch((err: Error) => {
+      } catch (err: unknown) {
         void refreshCreditsBalance()
         setSummaryError(
-          err.message || "Could not connect to the reading service.",
+          err instanceof Error
+            ? err.message
+            : "Could not connect to the reading service.",
         )
-      })
-      .finally(() => {
+      } finally {
         setIsSummarizing(false)
-      })
+      }
+    })()
   }, [
     balance,
     isSignedIn,

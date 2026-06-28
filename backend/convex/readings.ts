@@ -26,7 +26,9 @@ export const saveReading = mutation({
     cardName: v.string(),
     summary: v.string(),
     drawnAt: v.number(),
-    contextType: v.optional(v.literal("dating-match")),
+    contextType: v.optional(
+      v.union(v.literal("dating-match"), v.literal("daily-big-three")),
+    ),
     sourceApp: v.optional(v.string()),
     targetProfileId: v.optional(v.string()),
   },
@@ -42,6 +44,18 @@ export const saveReading = mutation({
       sourceApp: args.sourceApp,
       targetProfileId: args.targetProfileId,
     })
+  },
+})
+
+export const getClerkUserIdByDevice = query({
+  args: { deviceId: v.string() },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, { deviceId }) => {
+    const link = await ctx.db
+      .query("deviceLinks")
+      .withIndex("by_deviceId", (q) => q.eq("deviceId", deviceId))
+      .unique()
+    return link?.clerkUserId ?? null
   },
 })
 

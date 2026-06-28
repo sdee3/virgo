@@ -1,7 +1,7 @@
 import { httpRouter } from "convex/server"
 import { httpAction } from "./_generated/server"
 import { api } from "./_generated/api"
-import { getClerkUserIdOrNull } from "./lib/auth"
+import { getClerkUserIdOrNull, resolveClerkUserIdForRequest } from "./lib/auth"
 import {
   debitCreditsForUser,
   isCreditsEnforcementEnabled,
@@ -16,12 +16,14 @@ const ALLOWED_ORIGINS = [
   "https://astro-mate.sdee3.com",
 ]
 
+type BigThree = { sunSign: string; moonSign: string; ascendantSign: string }
+
 type DatingMatchContext = {
   type: "dating-match"
   sourceApp: "astro-mate"
   matchDisplayName: string
-  viewer: { sunSign: string; moonSign: string; ascendantSign: string }
-  candidate: { sunSign: string; moonSign: string; ascendantSign: string }
+  viewer: BigThree
+  candidate: BigThree
   synastry?: {
     overallBand?: "low" | "medium" | "high"
     overallScore?: number
@@ -30,6 +32,17 @@ type DatingMatchContext = {
   }
   targetProfileId?: string
 }
+
+type DailyBigThreeContext = {
+  type: "daily-big-three"
+  sourceApp: "astro-mate"
+  viewer: BigThree
+  localDate: string
+  timeZone?: string
+  focus: "ongoing-day"
+}
+
+type TarotContext = DatingMatchContext | DailyBigThreeContext
 
 function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("Origin")
@@ -91,18 +104,8 @@ function validateStringArray(
 }
 
 function validateDatingMatchContext(
-  value: unknown,
+  raw: Record<string, unknown>,
 ): { ok: true; context: DatingMatchContext } | { ok: false; error: string } {
-  if (!value || typeof value !== "object") {
-    return { ok: false, error: "Invalid context" }
-  }
-
-  const raw = value as Record<string, unknown>
-
-  if (raw.type !== "dating-match") {
-    return { ok: false, error: "Invalid context type" }
-  }
-
   if (raw.sourceApp !== "astro-mate") {
     return { ok: false, error: "Invalid sourceApp" }
   }
@@ -190,6 +193,70 @@ function validateDatingMatchContext(
   }
 }
 
+function validateDailyBigThreeContext(
+  raw: Record<string, unknown>,
+): { ok: true; context: DailyBigThreeContext } | { ok: false; error: string } {
+  if (raw.sourceApp !== "astro-mate") {
+    return { ok: false, error: "Invalid sourceApp" }
+  }
+
+  const viewer = validateBigThree(raw.viewer, "viewer")
+  if (!viewer) {
+    return { ok: false, error: "viewer Big Three is required" }
+  }
+
+  if (
+    !isNonEmptyString(raw.localDate, 10) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(raw.localDate.trim())
+  ) {
+    return { ok: false, error: "localDate must be YYYY-MM-DD" }
+  }
+
+  if (raw.focus !== "ongoing-day") {
+    return { ok: false, error: "Invalid focus" }
+  }
+
+  if (
+    raw.timeZone !== undefined &&
+    !isNonEmptyString(raw.timeZone, 64)
+  ) {
+    return { ok: false, error: "Invalid timeZone" }
+  }
+
+  return {
+    ok: true,
+    context: {
+      type: "daily-big-three",
+      sourceApp: "astro-mate",
+      viewer,
+      localDate: raw.localDate.trim(),
+      timeZone:
+        typeof raw.timeZone === "string" ? raw.timeZone.trim() : undefined,
+      focus: "ongoing-day",
+    },
+  }
+}
+
+function validateTarotContext(
+  value: unknown,
+): { ok: true; context: TarotContext } | { ok: false; error: string } {
+  if (!value || typeof value !== "object") {
+    return { ok: false, error: "Invalid context" }
+  }
+
+  const raw = value as Record<string, unknown>
+
+  if (raw.type === "dating-match") {
+    return validateDatingMatchContext(raw)
+  }
+
+  if (raw.type === "daily-big-three") {
+    return validateDailyBigThreeContext(raw)
+  }
+
+  return { ok: false, error: "Invalid context type" }
+}
+
 function buildDatingMatchUserMessage(
   cardName: string,
   context: DatingMatchContext,
@@ -217,6 +284,26 @@ function buildDatingMatchUserMessage(
   lines.push(
     `They drew ${cardName}. Interpret this card specifically in light of this connection — chemistry, communication, emotional fit — in 2–3 warm second-person sentences. Do not claim certainty about the other person's feelings.`,
   )
+
+  if (cardName.startsWith("Reversed ")) {
+    lines.push(
+      "Since the card is reversed, address how its energy may be blocked, internalized, or requiring deeper introspection.",
+    )
+  }
+
+  return lines.join("\n")
+}
+
+function buildDailyBigThreeUserMessage(
+  cardName: string,
+  context: DailyBigThreeContext,
+): string {
+  const { viewer, localDate, timeZone } = context
+  const lines = [
+    `The user is drawing a daily tarot card for ${localDate}${timeZone ? ` (${timeZone})` : ""}.`,
+    `Viewer Big Three: Sun ${viewer.sunSign}, Moon ${viewer.moonSign}, Ascendant ${viewer.ascendantSign}.`,
+    `They drew ${cardName}. Interpret this card for their day ahead — what themes, opportunities, or inner work it highlights through their Sun, Moon, and Rising signs — in 2–3 warm second-person sentences.`,
+  ]
 
   if (cardName.startsWith("Reversed ")) {
     lines.push(
@@ -303,7 +390,7 @@ http.route({
     }
 
     const deviceId = getDeviceId(request)
-    const clerkUserId = await getClerkUserIdOrNull(ctx)
+    const clerkUserId = await resolveClerkUserIdForRequest(ctx, deviceId)
 
     if (!deviceId && !clerkUserId) {
       return new Response(
@@ -355,7 +442,7 @@ http.route({
     }
 
     const deviceId = getDeviceId(request)
-    const clerkUserId = await getClerkUserIdOrNull(ctx)
+    const clerkUserId = await resolveClerkUserIdForRequest(ctx, deviceId)
 
     if (!deviceId && !clerkUserId) {
       return new Response(
@@ -379,16 +466,16 @@ http.route({
       })
     }
 
-    let datingContext: DatingMatchContext | undefined
+    let tarotContext: TarotContext | undefined
     if (body.context !== undefined) {
-      const validated = validateDatingMatchContext(body.context)
+      const validated = validateTarotContext(body.context)
       if (!validated.ok) {
         return new Response(JSON.stringify({ error: validated.error }), {
           status: 400,
           headers,
         })
       }
-      datingContext = validated.context
+      tarotContext = validated.context
     }
 
     const { allowed, remaining } = await ctx.runMutation(
@@ -409,9 +496,10 @@ http.route({
       )
     }
 
-    const creditReason = datingContext
-      ? "virgo.dating_match_summary"
-      : "virgo.card_summary"
+    const creditReason =
+      tarotContext?.type === "dating-match"
+        ? "virgo.dating_match_summary"
+        : "virgo.card_summary"
 
     const drawnAt =
       typeof body.drawnAt === "number" && Number.isFinite(body.drawnAt)
@@ -435,7 +523,7 @@ http.route({
     let debited = false
     const debitMetadata = {
       cardName: body.cardName,
-      ...(datingContext ? { contextType: "dating-match" } : {}),
+      ...(tarotContext ? { contextType: tarotContext.type } : {}),
     }
 
     if (clerkUserId && isCreditsEnforcementEnabled() && idempotencyKey) {
@@ -459,10 +547,12 @@ http.route({
       }
     }
 
-    const userMessage = datingContext
-      ? buildDatingMatchUserMessage(body.cardName, datingContext)
-      : `Card drawn: ${body.cardName}
+    const userMessage = !tarotContext
+      ? `Card drawn: ${body.cardName}
 The user has drawn this card seeking guidance on a question in their life. Speak to the card's general wisdom — its energy, themes, and what reflection it invites.${body.cardName.startsWith("Reversed ") ? " Since the card is reversed, address how its energy may be blocked, internalized, or requiring deeper introspection." : ""}`
+      : tarotContext.type === "dating-match"
+        ? buildDatingMatchUserMessage(body.cardName, tarotContext)
+        : buildDailyBigThreeUserMessage(body.cardName, tarotContext)
 
     async function refundIfDebited(): Promise<void> {
       if (!debited || !clerkUserId || !idempotencyKey) {
@@ -538,9 +628,12 @@ The user has drawn this card seeking guidance on a question in their life. Speak
         cardName: body.cardName,
         summary,
         drawnAt,
-        contextType: datingContext ? "dating-match" : undefined,
-        sourceApp: datingContext?.sourceApp,
-        targetProfileId: datingContext?.targetProfileId,
+        contextType: tarotContext?.type,
+        sourceApp: tarotContext?.sourceApp,
+        targetProfileId:
+          tarotContext?.type === "dating-match"
+            ? tarotContext.targetProfileId
+            : undefined,
       })
     } catch (error) {
       console.error("Failed to save reading:", error)

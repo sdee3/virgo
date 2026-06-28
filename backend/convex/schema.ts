@@ -15,7 +15,9 @@ export default defineSchema({
     cardName: v.string(),
     summary: v.string(),
     drawnAt: v.number(),
-    contextType: v.optional(v.literal("dating-match")),
+    contextType: v.optional(
+      v.union(v.literal("dating-match"), v.literal("daily-big-three")),
+    ),
     sourceApp: v.optional(v.string()),
     targetProfileId: v.optional(v.string()),
   })

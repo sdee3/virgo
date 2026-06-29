@@ -4,6 +4,7 @@ import { CARDS } from "./data/cards"
 import { fetchReadings, summarizeCard } from "./lib/api"
 import { BackIcon } from "./components/BackIcon"
 import { CardView } from "./components/CardView"
+import { ShareReadingButton } from "./components/ShareReadingButton"
 import { CreditsPage } from "./components/CreditsPage"
 import { PastReadingsPage } from "./components/PastReadingsPage"
 import { FannedCards, useShowFannedCards } from "./components/FannedCards"
@@ -61,7 +62,7 @@ function AppInner() {
   const [pastReadings, setPastReadings] = useState<StoredReading[]>([])
   const [pastHasMore, setPastHasMore] = useState(false)
   const [showAllPastReadings, setShowAllPastReadings] = useState(false)
-  const [chromeActionsSlot, setChromeActionsSlot] = useState<HTMLElement | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
 
   const isReversedRef = useRef(false)
   const drawnAtRef = useRef<number>(0)
@@ -91,7 +92,7 @@ function AppInner() {
 
   useEffect(() => {
     if (!cardFile) {
-      setChromeActionsSlot(null)
+      setShareError(null)
     }
   }, [cardFile])
 
@@ -322,15 +323,21 @@ function AppInner() {
                 </button>
               </div>
               <div className="reading-chrome__center">{appTitle}</div>
-              <div
-                className="reading-chrome__slot reading-chrome__slot--end"
-                ref={setChromeActionsSlot}
-              />
+              <div className="reading-chrome__slot reading-chrome__slot--end">
+                {summary && !isSummarizing ? (
+                  <ShareReadingButton
+                    cardFile={cardFile}
+                    cardName={cardName}
+                    isReversed={isReversed}
+                    summary={summary}
+                    onShareError={setShareError}
+                  />
+                ) : null}
+              </div>
             </div>
           </header>
           <div className="reading-view">
             <CardView
-              chromeActionsSlot={chromeActionsSlot}
               cardFile={cardFile}
               cardName={cardName}
               isReversed={isReversed}
@@ -338,6 +345,7 @@ function AppInner() {
               isSummarizing={isSummarizing}
               summary={summary}
               summaryError={summaryError}
+              shareError={shareError}
               remaining={remaining}
               onDrawCard={drawCard}
               onCardReady={handleCardReady}

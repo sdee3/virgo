@@ -165,10 +165,7 @@ function CreditsPageInner({ onBack, toolbarEnd }: CreditsPageProps) {
   const createCheckout = useAction(
     identityApi.credits.stripeCheckout.createCheckoutSession,
   )
-  const createPortal = useAction(
-    identityApi.credits.stripeCheckout.createBillingPortalSession,
-  )
-  const [loadingKey, setLoadingKey] = useState<CreditPriceKey | "portal" | null>(
+  const [loadingKey, setLoadingKey] = useState<CreditPriceKey | null>(
     null,
   )
   const [error, setError] = useState<string | null>(null)
@@ -186,7 +183,6 @@ function CreditsPageInner({ onBack, toolbarEnd }: CreditsPageProps) {
   const returnUrl = `${window.location.origin}${window.location.pathname}`
   const products = catalog ?? {
     packs: [],
-    subscriptions: [],
     actionCosts: { virgo_tarot_draw: VIRGO_READING_CREDIT_COST, debates_llm_response: 200 },
   }
 
@@ -207,25 +203,6 @@ function CreditsPageInner({ onBack, toolbarEnd }: CreditsPageProps) {
       window.location.href = url
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed")
-      setLoadingKey(null)
-    }
-  }
-
-  async function openPortal() {
-    if (!isSignedIn || !identityReady) {
-      signIn()
-      return
-    }
-
-    setLoadingKey("portal")
-    setError(null)
-    try {
-      const { url } = await createPortal({ returnUrl })
-      window.location.href = url
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not open billing portal",
-      )
       setLoadingKey(null)
     }
   }
@@ -286,23 +263,8 @@ function CreditsPageInner({ onBack, toolbarEnd }: CreditsPageProps) {
       ) : null}
 
       <section className="credits-section">
-        <h2 className="credits-section__heading">Monthly subscriptions</h2>
+        <h2 className="credits-section__heading">Credit packs</h2>
         <div className="credits-products credits-products--grid">
-          {products.subscriptions.map((product) => (
-            <ProductCard
-              key={product.key}
-              product={product}
-              priceLabel={`${formatUsd(product.priceUsd)} / month`}
-              loading={loadingKey === product.key}
-              onBuy={() => void startCheckout(product.key)}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="credits-section">
-        <h2 className="credits-section__heading">One-time purchase</h2>
-        <div className="credits-products">
           {products.packs.map((product) => (
             <ProductCard
               key={product.key}
@@ -314,19 +276,6 @@ function CreditsPageInner({ onBack, toolbarEnd }: CreditsPageProps) {
           ))}
         </div>
       </section>
-
-      {isSignedIn ? (
-        <div className="credits-page__portal">
-          <button
-            type="button"
-            className="credits-page__portal-btn"
-            onClick={() => void openPortal()}
-            disabled={loadingKey === "portal"}
-          >
-            {loadingKey === "portal" ? "Opening…" : "Manage subscription"}
-          </button>
-        </div>
-      ) : null}
 
       <section className="credits-section">
         <h2 className="credits-section__heading">Transaction history</h2>

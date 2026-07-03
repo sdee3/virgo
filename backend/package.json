@@ -1,8 +1,14 @@
 {
   "scripts": {
-    "dev": "npx convex dev"
+    "dev": "npx convex dev",
+    "test": "vitest run"
   },
   "dependencies": {
     "convex": "^1.42.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }

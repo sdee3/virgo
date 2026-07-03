@@ -1,5 +1,5 @@
 import type { Doc, Id } from "./_generated/dataModel"
-import { mutation, query } from "./_generated/server"
+import { internalMutation, internalQuery, mutation } from "./_generated/server"
 import { v } from "convex/values"
 import { requireClerkUserId } from "./lib/auth"
 
@@ -19,7 +19,133 @@ const readingDoc = v.object({
   drawnAt: v.number(),
 })
 
-export const saveReading = mutation({
+const PAGINATION_CHUNK_SIZE = 25
+
+type ReadingsQuery = {
+  paginate: (args: {
+    cursor: string | null
+    numItems: number
+  }) => Promise<{
+    page: Doc<"readings">[]
+    continueCursor: string | null
+    isDone: boolean
+  }>
+}
+
+function toReadingRow(row: Doc<"readings">): ReadingRow {
+  return {
+    _id: row._id,
+    _creationTime: row._creationTime,
+    cardName: row.cardName,
+    summary: row.summary,
+    drawnAt: row.drawnAt,
+  }
+}
+
+async function collectSingleStreamPage(args: {
+  query: ReadingsQuery
+  skip: number
+  limit: number
+}): Promise<{ readings: ReadingRow[]; hasMore: boolean }> {
+  const targetCount = args.skip + args.limit + 1
+  const rows: Doc<"readings">[] = []
+  let cursor: string | null = null
+  let isDone = false
+
+  while (rows.length < targetCount && !isDone) {
+    const batch = await args.query.paginate({
+      cursor,
+      numItems: Math.max(PAGINATION_CHUNK_SIZE, targetCount - rows.length),
+    })
+    rows.push(...batch.page)
+    cursor = batch.continueCursor
+    isDone = batch.isDone
+  }
+
+  return {
+    readings: rows.slice(args.skip, args.skip + args.limit).map(toReadingRow),
+    hasMore: rows.length > args.skip + args.limit || !isDone,
+  }
+}
+
+async function collectMergedStreamsPage(args: {
+  userQuery: ReadingsQuery
+  deviceQuery: ReadingsQuery
+  skip: number
+  limit: number
+}): Promise<{ readings: ReadingRow[]; hasMore: boolean }> {
+  const targetCount = args.skip + args.limit + 1
+  const merged: ReadingRow[] = []
+  const seen = new Set<string>()
+
+  let userCursor: string | null = null
+  let deviceCursor: string | null = null
+  let userDone = false
+  let deviceDone = false
+  let userBuffer: Doc<"readings">[] = []
+  let deviceBuffer: Doc<"readings">[] = []
+
+  while (
+    merged.length < targetCount &&
+    (!userDone || userBuffer.length > 0 || !deviceDone || deviceBuffer.length > 0)
+  ) {
+    if (userBuffer.length === 0 && !userDone) {
+      const batch = await args.userQuery.paginate({
+        cursor: userCursor,
+        numItems: PAGINATION_CHUNK_SIZE,
+      })
+      userBuffer = batch.page
+      userCursor = batch.continueCursor
+      userDone = batch.isDone
+    }
+
+    if (deviceBuffer.length === 0 && !deviceDone) {
+      const batch = await args.deviceQuery.paginate({
+        cursor: deviceCursor,
+        numItems: PAGINATION_CHUNK_SIZE,
+      })
+      deviceBuffer = batch.page
+      deviceCursor = batch.continueCursor
+      deviceDone = batch.isDone
+    }
+
+    const nextUser = userBuffer[0]
+    const nextDevice = deviceBuffer[0]
+
+    if (!nextUser && !nextDevice) {
+      break
+    }
+
+    const useUser =
+      nextUser &&
+      (!nextDevice || nextUser.drawnAt >= nextDevice.drawnAt)
+
+    const nextRow = useUser ? userBuffer.shift() : deviceBuffer.shift()
+    if (!nextRow) {
+      continue
+    }
+
+    const rowId = String(nextRow._id)
+    if (seen.has(rowId)) {
+      continue
+    }
+
+    seen.add(rowId)
+    merged.push(toReadingRow(nextRow))
+  }
+
+  return {
+    readings: merged.slice(args.skip, args.skip + args.limit),
+    hasMore:
+      merged.length > args.skip + args.limit ||
+      !userDone ||
+      userBuffer.length > 0 ||
+      !deviceDone ||
+      deviceBuffer.length > 0,
+  }
+}
+
+export const saveReading = internalMutation({
   args: {
     deviceId: v.string(),
     clerkUserId: v.optional(v.string()),
@@ -47,7 +173,7 @@ export const saveReading = mutation({
   },
 })
 
-export const getClerkUserIdByDevice = query({
+export const getClerkUserIdByDevice = internalQuery({
   args: { deviceId: v.string() },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, { deviceId }) => {
@@ -59,7 +185,7 @@ export const getClerkUserIdByDevice = query({
   },
 })
 
-export const listReadings = query({
+export const listReadings = internalQuery({
   args: {
     deviceId: v.string(),
     clerkUserId: v.optional(v.string()),
@@ -71,59 +197,32 @@ export const listReadings = query({
     hasMore: v.boolean(),
   }),
   handler: async (ctx, { deviceId, clerkUserId, limit, skip = 0 }) => {
-    let all: ReadingRow[]
-
     if (clerkUserId) {
-      const merged: ReadingRow[] = []
-      const byUser: Doc<"readings">[] = await ctx.db
+      return await collectMergedStreamsPage({
+        userQuery: ctx.db
         .query("readings")
         .withIndex("by_clerkUserId_drawnAt", (q) =>
           q.eq("clerkUserId", clerkUserId),
         )
-        .order("desc")
-        .collect()
-
-      const byDevice: Doc<"readings">[] = await ctx.db
+        .order("desc"),
+        deviceQuery: ctx.db
         .query("readings")
         .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
         .order("desc")
-        .collect()
-
-      const seen = new Set<string>()
-      for (const row of [...byUser, ...byDevice]) {
-        if (seen.has(row._id)) continue
-        seen.add(row._id)
-        merged.push({
-          _id: row._id,
-          _creationTime: row._creationTime,
-          cardName: row.cardName,
-          summary: row.summary,
-          drawnAt: row.drawnAt,
-        })
-      }
-
-      merged.sort((a, b) => b.drawnAt - a.drawnAt)
-      all = merged
-    } else {
-      const rows = await ctx.db
-        .query("readings")
-        .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
-        .order("desc")
-        .collect()
-
-      all = rows.map((row) => ({
-        _id: row._id,
-        _creationTime: row._creationTime,
-        cardName: row.cardName,
-        summary: row.summary,
-        drawnAt: row.drawnAt,
-      }))
+        ,
+        skip,
+        limit,
+      })
     }
 
-    const readings = all.slice(skip, skip + limit)
-    const hasMore = all.length > skip + limit
-
-    return { readings, hasMore }
+    return await collectSingleStreamPage({
+      query: ctx.db
+        .query("readings")
+        .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
+        .order("desc"),
+      skip,
+      limit,
+    })
   },
 })
 

@@ -1,20 +1,22 @@
 import { httpRouter } from "convex/server"
 import { httpAction } from "./_generated/server"
-import { api } from "./_generated/api"
-import { getClerkUserIdOrNull, resolveClerkUserIdForRequest } from "./lib/auth"
+import type { ActionCtx } from "./_generated/server"
+import { api, internal } from "./_generated/api"
+import { getClerkUserIdOrNull } from "./lib/auth"
 import {
   debitCreditsForUser,
   isCreditsEnforcementEnabled,
   refundSummaryDebit,
   SUMMARY_CREDIT_COST,
 } from "./lib/credits"
-
-const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  "http://localhost:4173",
-  "https://virgo.sdee3.com",
-  "https://astro-mate.sdee3.com",
-]
+import {
+  buildCorsHeaders,
+  extractClientIp,
+  isDeviceLinkedToDifferentUser,
+  sanitizeSummaryOutput,
+  shouldRequireSummarizeAuth,
+  validateCardName,
+} from "./lib/httpSecurity"
 
 type BigThree = { sunSign: string; moonSign: string; ascendantSign: string }
 
@@ -43,19 +45,6 @@ type DailyBigThreeContext = {
 }
 
 type TarotContext = DatingMatchContext | DailyBigThreeContext
-
-function corsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get("Origin")
-  const allowOrigin =
-    origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[2]
-
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Device-Id, Authorization",
-    Vary: "Origin",
-  }
-}
 
 function getDeviceId(request: Request): string | null {
   const header = request.headers.get("x-device-id")?.trim()
@@ -316,9 +305,46 @@ function buildDailyBigThreeUserMessage(
 
 const http = httpRouter()
 
+function buildResponseHeaders(request: Request): {
+  allowed: boolean
+  headers: Record<string, string>
+} {
+  const cors = buildCorsHeaders(request.headers.get("Origin"))
+  return {
+    allowed: cors.allowed,
+    headers: {
+      "Content-Type": "application/json",
+      ...cors.headers,
+    },
+  }
+}
+
+function forbiddenOriginResponse(request: Request): Response {
+  const { headers } = buildResponseHeaders(request)
+  return new Response(JSON.stringify({ error: "Origin not allowed" }), {
+    status: 403,
+    headers,
+  })
+}
+
+async function getLinkedClerkUserId(
+  ctx: ActionCtx,
+  deviceId: string | null,
+): Promise<string | null> {
+  if (!deviceId) {
+    return null
+  }
+
+  return await ctx.runQuery(internal.readings.getClerkUserIdByDevice, { deviceId })
+}
+
 function optionsHandler() {
   return httpAction(async (_ctx, request) => {
-    return new Response(null, { headers: corsHeaders(request) })
+    const cors = buildCorsHeaders(request.headers.get("Origin"))
+    if (!cors.allowed) {
+      return new Response(null, { status: 403, headers: cors.headers })
+    }
+    return new Response(null, { headers: cors.headers })
   })
 }
 
@@ -344,9 +370,9 @@ http.route({
   path: "/device/link",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const headers = {
-      "Content-Type": "application/json",
-      ...corsHeaders(request),
+    const { allowed, headers } = buildResponseHeaders(request)
+    if (!allowed) {
+      return forbiddenOriginResponse(request)
     }
 
     const deviceId = getDeviceId(request)
@@ -384,13 +410,13 @@ http.route({
   path: "/readings",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const headers = {
-      "Content-Type": "application/json",
-      ...corsHeaders(request),
+    const { allowed, headers } = buildResponseHeaders(request)
+    if (!allowed) {
+      return forbiddenOriginResponse(request)
     }
 
     const deviceId = getDeviceId(request)
-    const clerkUserId = await resolveClerkUserIdForRequest(ctx, deviceId)
+    const clerkUserId = await getClerkUserIdOrNull(ctx)
 
     if (!deviceId && !clerkUserId) {
       return new Response(
@@ -399,6 +425,19 @@ http.route({
         }),
         { status: 400, headers },
       )
+    }
+
+    const linkedClerkUserId = await getLinkedClerkUserId(ctx, deviceId)
+    if (
+      isDeviceLinkedToDifferentUser({
+        authenticatedUserId: clerkUserId,
+        linkedUserId: linkedClerkUserId,
+      })
+    ) {
+      return new Response(JSON.stringify({ error: "This device is linked to another account." }), {
+        status: 403,
+        headers,
+      })
     }
 
     const url = new URL(request.url)
@@ -421,7 +460,7 @@ http.route({
       })
     }
 
-    const result = await ctx.runQuery(api.readings.listReadings, {
+    const result = await ctx.runQuery(internal.readings.listReadings, {
       deviceId: deviceId ?? "",
       clerkUserId: clerkUserId ?? undefined,
       limit,
@@ -436,13 +475,25 @@ http.route({
   path: "/summarize",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const headers = {
-      "Content-Type": "application/json",
-      ...corsHeaders(request),
+    const { allowed, headers } = buildResponseHeaders(request)
+    if (!allowed) {
+      return forbiddenOriginResponse(request)
     }
 
     const deviceId = getDeviceId(request)
-    const clerkUserId = await resolveClerkUserIdForRequest(ctx, deviceId)
+    const clerkUserId = await getClerkUserIdOrNull(ctx)
+    const creditsEnforcementEnabled = isCreditsEnforcementEnabled()
+    const requireAuth = shouldRequireSummarizeAuth({
+      creditsEnforcementEnabled,
+      requireAuthSetting: process.env.REQUIRE_AUTH_FOR_SUMMARIZE,
+    })
+
+    if (requireAuth && !clerkUserId) {
+      return new Response(JSON.stringify({ error: "Authorization is required" }), {
+        status: 401,
+        headers,
+      })
+    }
 
     if (!deviceId && !clerkUserId) {
       return new Response(
@@ -453,13 +504,27 @@ http.route({
       )
     }
 
+    const linkedClerkUserId = await getLinkedClerkUserId(ctx, deviceId)
+    if (
+      isDeviceLinkedToDifferentUser({
+        authenticatedUserId: clerkUserId,
+        linkedUserId: linkedClerkUserId,
+      })
+    ) {
+      return new Response(JSON.stringify({ error: "This device is linked to another account." }), {
+        status: 403,
+        headers,
+      })
+    }
+
     const body: {
       cardName?: string
       drawnAt?: number
       context?: unknown
     } = await request.json()
 
-    if (!body.cardName) {
+    const cardName = validateCardName(body.cardName)
+    if (!cardName) {
       return new Response(JSON.stringify({ error: "cardName is required" }), {
         status: 400,
         headers,
@@ -478,15 +543,16 @@ http.route({
       tarotContext = validated.context
     }
 
-    const { allowed, remaining } = await ctx.runMutation(
-      api.summarize.checkAndRecordRateLimit,
+    const { allowed: rateLimitAllowed, remaining } = await ctx.runMutation(
+      internal.summarize.checkAndRecordRateLimit,
       {
         deviceId: deviceId ?? undefined,
         clerkUserId: clerkUserId ?? undefined,
+        ipAddress: extractClientIp(request) ?? undefined,
       },
     )
 
-    if (!allowed) {
+    if (!rateLimitAllowed) {
       return new Response(
         JSON.stringify({
           error: "You've reached the limit of 20 card readings per 60 minutes.",
@@ -507,7 +573,7 @@ http.route({
         : Date.now()
 
     const idempotencyKey = clerkUserId
-      ? `virgo:summary:${clerkUserId}:${drawnAt}:${body.cardName}`
+      ? `virgo:summary:${clerkUserId}:${drawnAt}:${cardName}`
       : null
 
     const model = process.env.OPENROUTER_MODEL
@@ -522,11 +588,11 @@ http.route({
 
     let debited = false
     const debitMetadata = {
-      cardName: body.cardName,
+      cardName,
       ...(tarotContext ? { contextType: tarotContext.type } : {}),
     }
 
-    if (clerkUserId && isCreditsEnforcementEnabled() && idempotencyKey) {
+    if (clerkUserId && creditsEnforcementEnabled && idempotencyKey) {
       try {
         await debitCreditsForUser({
           clerkUserId,
@@ -548,11 +614,11 @@ http.route({
     }
 
     const userMessage = !tarotContext
-      ? `Card drawn: ${body.cardName}
-The user has drawn this card seeking guidance on a question in their life. Speak to the card's general wisdom — its energy, themes, and what reflection it invites.${body.cardName.startsWith("Reversed ") ? " Since the card is reversed, address how its energy may be blocked, internalized, or requiring deeper introspection." : ""}`
+      ? `Card drawn: ${cardName}
+The user has drawn this card seeking guidance on a question in their life. Speak to the card's general wisdom — its energy, themes, and what reflection it invites.${cardName.startsWith("Reversed ") ? " Since the card is reversed, address how its energy may be blocked, internalized, or requiring deeper introspection." : ""}`
       : tarotContext.type === "dating-match"
-        ? buildDatingMatchUserMessage(body.cardName, tarotContext)
-        : buildDailyBigThreeUserMessage(body.cardName, tarotContext)
+        ? buildDatingMatchUserMessage(cardName, tarotContext)
+        : buildDailyBigThreeUserMessage(cardName, tarotContext)
 
     async function refundIfDebited(): Promise<void> {
       if (!debited || !clerkUserId || !idempotencyKey) {
@@ -610,8 +676,9 @@ The user has drawn this card seeking guidance on a question in their life. Speak
       }
 
       const data = await openRouterResponse.json()
-      summary =
-        data.choices?.[0]?.message?.content ?? "No interpretation available."
+      summary = sanitizeSummaryOutput(
+        data.choices?.[0]?.message?.content ?? "No interpretation available.",
+      )
     } catch (error) {
       console.error("OpenRouter request failed:", error)
       await refundIfDebited()
@@ -622,10 +689,10 @@ The user has drawn this card seeking guidance on a question in their life. Speak
     }
 
     try {
-      await ctx.runMutation(api.readings.saveReading, {
+      await ctx.runMutation(internal.readings.saveReading, {
         deviceId: deviceId ?? `user:${clerkUserId}`,
         clerkUserId: clerkUserId ?? undefined,
-        cardName: body.cardName,
+        cardName,
         summary,
         drawnAt,
         contextType: tarotContext?.type,

@@ -9,6 +9,7 @@
     "strict": true,
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
+    "types": ["node", "vitest/globals"],
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
 

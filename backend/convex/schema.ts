@@ -5,10 +5,12 @@ export default defineSchema({
   rateLimits: defineTable({
     deviceId: v.optional(v.string()),
     clerkUserId: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
     timestamp: v.number(),
   })
     .index("by_device_timestamp", ["deviceId", "timestamp"])
-    .index("by_clerkUser_timestamp", ["clerkUserId", "timestamp"]),
+    .index("by_clerkUser_timestamp", ["clerkUserId", "timestamp"])
+    .index("by_ipAddress_timestamp", ["ipAddress", "timestamp"]),
   readings: defineTable({
     deviceId: v.string(),
     clerkUserId: v.optional(v.string()),

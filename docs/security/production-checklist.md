@@ -23,7 +23,9 @@ Use this checklist before each production deploy.
 
 ## CloudFront and browser protections
 
-- [ ] Deploy with `scripts/deploy-frontend.sh` so the CloudFront response headers policy is created or updated automatically.
+- [ ] Deploy with `scripts/deploy-frontend.sh` so CloudFront security headers are applied automatically.
+- [ ] On CloudFront Free plan distributions, the script uses AWS managed `SecurityHeadersPolicy` plus a viewer-response function for CSP.
+- [ ] On paid CloudFront plans, the script uses the custom Virgo response headers policy (full CSP/HSTS/DENY frame policy).
 - [ ] Verify the distribution is serving:
   - `Content-Security-Policy`
   - `Strict-Transport-Security`

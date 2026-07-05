@@ -118,7 +118,7 @@ attach_security_headers_policy() {
     --id "${DISTRIBUTION_ID}" \
     --query "DistributionConfig" > "${distribution_config_file}"
 
-  python - "${distribution_config_file}" "${policy_id}" <<'PY'
+  python3 - "${distribution_config_file}" "${policy_id}" <<'PY'
 import json
 import sys
 

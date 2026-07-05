@@ -3,6 +3,8 @@
 .playwright-mcp
 node_modules
 .env*
+!.env.example
+!**/.env.example
 
 dist
 backend/convex/_generated

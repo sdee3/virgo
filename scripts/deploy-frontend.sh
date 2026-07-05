@@ -45,6 +45,19 @@ CARD_EXCLUDES=(
   --exclude "cards/2x/*"
 )
 
+write_production_env() {
+  local env_file="${SCRIPT_DIR}/../frontend/.env.production"
+
+  cat > "${env_file}" <<EOF
+VITE_CONVEX_URL=${VITE_CONVEX_URL:-https://tangible-impala-518.convex.cloud}
+VITE_CONVEX_SITE_URL=${VITE_CONVEX_SITE_URL:-https://tangible-impala-518.convex.site}
+VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY:-pk_live_Y2xlcmsuc2RlZTMuY29tJA}
+VITE_CLERK_SIGN_IN_URL=${VITE_CLERK_SIGN_IN_URL:-https://identity.sdee3.com/sign-in}
+VITE_CLERK_SIGN_UP_URL=${VITE_CLERK_SIGN_UP_URL:-https://identity.sdee3.com/sign-up}
+VITE_IDENTITY_CONVEX_URL=${VITE_IDENTITY_CONVEX_URL:-https://glad-snake-999.convex.cloud}
+EOF
+}
+
 update_distribution_config() {
   local distribution_config_file="$1"
   local distribution_etag
@@ -272,8 +285,9 @@ configure_cloudfront_security_headers() {
   attach_response_headers_policy "${custom_policy_id}"
 }
 
-echo "=== Building frontend ==="
-pnpm --dir ./frontend build
+echo "=== Building frontend (production env from frontend/.env.production) ==="
+write_production_env
+pnpm --dir ./frontend build --mode production
 
 echo ""
 echo "=== Uploading dist/ to s3://${BUCKET} (excluding card images) ==="

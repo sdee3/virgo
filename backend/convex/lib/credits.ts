@@ -20,9 +20,7 @@ async function callCreditsService(
   body: Record<string, unknown>,
 ): Promise<ServiceCreditResult> {
   const siteUrl = process.env.IDENTITY_CONVEX_SITE_URL;
-  const serviceSecret =
-    process.env.CREDITS_SERVICE_SECRET_VIRGO ??
-    process.env.CREDITS_SERVICE_SECRET;
+  const serviceSecret = process.env.CREDITS_SERVICE_SECRET_VIRGO;
 
   if (!siteUrl || !serviceSecret) {
     throw new Error("Credits service is not configured");

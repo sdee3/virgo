@@ -12,7 +12,7 @@ Use this checklist before each production deploy.
 
 - [ ] Set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`.
 - [ ] Set `IDENTITY_CONVEX_SITE_URL`.
-- [ ] Set `CREDITS_SERVICE_SECRET_VIRGO`. `CREDITS_SERVICE_SECRET` remains a fallback for shared environments.
+- [ ] Set `CREDITS_SERVICE_SECRET_VIRGO` (must match Identity `CREDITS_SERVICE_SECRET_VIRGO`).
 - [ ] Do not rely on secret rotation being part of this checklist; track rotation separately.
 
 ## Network and origin controls

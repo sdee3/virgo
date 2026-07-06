@@ -256,8 +256,6 @@ function AppInner() {
     <div
       className={`app${!isHomepage ? " app--reading" : ""}${isHomepage ? " app--idle" : ""}${isHomepage && showFannedCards ? " app--fanned" : ""}`}
     >
-      {isHomepage && <div className="app-topbar">{userMenu}</div>}
-
       {showPastReadingsPage ? (
         <PastReadingsPage
           readings={pastReadings}
@@ -272,6 +270,15 @@ function AppInner() {
         <CreditsPage onBack={backToHome} toolbarEnd={userMenu} />
       ) : !cardFile ? (
         <>
+          <header className="reading-chrome">
+            <div className="reading-chrome__toolbar">
+              <div className="reading-chrome__slot reading-chrome__slot--start" />
+              <div className="reading-chrome__center" />
+              <div className="reading-chrome__slot reading-chrome__slot--end">
+                {userMenu}
+              </div>
+            </div>
+          </header>
           <div className="idle-content">
             {appTitle}
             <p className="subtitle">What question is on your mind?</p>

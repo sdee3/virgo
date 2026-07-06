@@ -198,7 +198,8 @@ body {
 .past-readings-page {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  align-self: stretch;
   width: 100%;
   max-width: 960px;
   flex: 1;
@@ -218,6 +219,7 @@ body {
 .past-readings-page__content {
   width: 100%;
   max-width: 420px;
+  align-self: center;
 }
 
 .past-readings-page__content .past-readings {
@@ -255,7 +257,8 @@ body {
 .credits-page {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  align-self: stretch;
   width: 100%;
   max-width: 960px;
   flex: 1;
@@ -265,6 +268,7 @@ body {
   width: 100%;
   max-width: 520px;
   padding: 0 16px 48px;
+  align-self: center;
 }
 
 .credits-section {
@@ -1155,5 +1159,21 @@ body {
 
   .reading-chrome .title-btn {
     font-size: clamp(2.5rem, 8vw, 3.25rem);
+  }
+
+  .app--reading:has(.past-readings-page),
+  .app--reading:has(.credits-page) {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .past-readings-page > .reading-chrome,
+  .credits-page > .reading-chrome {
+    max-width: none;
+  }
+
+  .past-readings-page > .reading-chrome .reading-chrome__toolbar,
+  .credits-page > .reading-chrome .reading-chrome__toolbar {
+    padding-inline: max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   }
 }

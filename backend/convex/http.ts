@@ -52,6 +52,17 @@ function getDeviceId(request: Request): string | null {
   return null
 }
 
+function hasBearerToken(request: Request): boolean {
+  const header = request.headers.get("Authorization")?.trim()
+  return Boolean(header?.startsWith("Bearer ") && header.length > "Bearer ".length)
+}
+
+function authErrorMessage(request: Request): string {
+  return hasBearerToken(request)
+    ? "Invalid or expired session. Please sign in again."
+    : "Authorization is required"
+}
+
 function isNonEmptyString(value: unknown, maxLen: number): value is string {
   return typeof value === "string" && value.trim().length > 0 && value.length <= maxLen
 }
@@ -386,7 +397,7 @@ http.route({
     }
 
     if (!clerkUserId) {
-      return new Response(JSON.stringify({ error: "Authorization is required" }), {
+      return new Response(JSON.stringify({ error: authErrorMessage(request) }), {
         status: 401,
         headers,
       })
@@ -489,7 +500,7 @@ http.route({
     })
 
     if (requireAuth && !clerkUserId) {
-      return new Response(JSON.stringify({ error: "Authorization is required" }), {
+      return new Response(JSON.stringify({ error: authErrorMessage(request) }), {
         status: 401,
         headers,
       })

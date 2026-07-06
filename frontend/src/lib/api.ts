@@ -3,6 +3,20 @@ import { getAuthToken } from "./authToken"
 import { getDeviceId } from "./deviceId"
 import type { ReadingsResponse, SummaryResponse } from "../types"
 
+async function apiFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(input, init)
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Could not connect to the reading service.")
+    }
+    throw error
+  }
+}
+
 async function apiHeaders(): Promise<HeadersInit> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -25,7 +39,7 @@ export async function fetchReadings(
     limit: String(limit),
     skip: String(skip),
   })
-  const res = await fetch(`${CONVEX_SITE_URL}/readings?${params}`, {
+  const res = await apiFetch(`${CONVEX_SITE_URL}/readings?${params}`, {
     headers: await apiHeaders(),
   })
   const data: ReadingsResponse = await res.json()
@@ -39,7 +53,7 @@ export async function summarizeCard(
   cardName: string,
   drawnAt: number,
 ): Promise<SummaryResponse> {
-  const res = await fetch(`${CONVEX_SITE_URL}/summarize`, {
+  const res = await apiFetch(`${CONVEX_SITE_URL}/summarize`, {
     method: "POST",
     headers: await apiHeaders(),
     body: JSON.stringify({ cardName, drawnAt }),

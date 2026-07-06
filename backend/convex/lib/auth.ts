@@ -5,8 +5,14 @@ type AuthCtx = QueryCtx | MutationCtx | ActionCtx
 export async function getClerkUserIdOrNull(
   ctx: AuthCtx,
 ): Promise<string | null> {
-  const identity = await ctx.auth.getUserIdentity()
-  return identity?.subject ?? null
+  try {
+    const identity = await ctx.auth.getUserIdentity()
+    return identity?.subject ?? null
+  } catch {
+    // Invalid or malformed Bearer tokens throw before our HTTP handler can
+    // attach CORS headers, which mobile browsers surface as "Load failed".
+    return null
+  }
 }
 
 export async function requireClerkUserId(ctx: AuthCtx): Promise<string> {

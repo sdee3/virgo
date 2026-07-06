@@ -156,6 +156,36 @@ describe("http security hardening", () => {
     expect(response.status).toBe(401)
   })
 
+  it("returns a session error when a bearer token is present but invalid", async () => {
+    state.authenticatedUserId = null
+
+    const routes = await loadRoutes()
+    const route = findRoute(routes, "/summarize", "POST")
+
+    const response = await route.handler(
+      {
+        runMutation: vi.fn(async () => ({ allowed: true, remaining: 19 })),
+        runQuery: vi.fn(),
+      },
+      new Request("https://virgo.example/summarize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer not-a-valid-jwt",
+          "X-Device-Id": "device-1",
+          Origin: "null",
+        },
+        body: JSON.stringify({ cardName: "The Fool" }),
+      }),
+    )
+
+    const payload = (await response.json()) as { error: string }
+
+    expect(response.status).toBe(401)
+    expect(payload.error).toBe("Invalid or expired session. Please sign in again.")
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("null")
+  })
+
   it("rejects invalid card names before calling rate limiting or storage", async () => {
     state.authenticatedUserId = "user_123"
 

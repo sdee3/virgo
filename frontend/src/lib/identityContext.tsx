@@ -44,7 +44,11 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setAuthTokenGetter(async () => {
       if (!isSignedIn) return null
-      return getToken({ template: "convex" })
+      try {
+        return await getToken({ template: "convex" })
+      } catch {
+        return null
+      }
     })
     return () => setAuthTokenGetter(null)
   }, [isSignedIn, getToken])

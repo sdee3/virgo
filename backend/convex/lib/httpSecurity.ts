@@ -75,6 +75,18 @@ export function buildCorsHeaders(origin: string | null): CorsResult {
     return { allowed: true, headers }
   }
 
+  // iOS standalone PWAs can send a serialized opaque origin ("null") on cross-origin
+  // fetches. Reflect it so the browser can read summarize/readings responses.
+  if (origin === "null") {
+    return {
+      allowed: true,
+      headers: {
+        ...headers,
+        "Access-Control-Allow-Origin": "null",
+      },
+    }
+  }
+
   if (!ALLOWED_ORIGINS.includes(origin as (typeof ALLOWED_ORIGINS)[number])) {
     return { allowed: false, headers }
   }

@@ -117,6 +117,22 @@ describe("http security hardening", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull()
   })
 
+  it("allows serialized opaque origins used by some mobile PWAs", async () => {
+    const routes = await loadRoutes()
+    const route = findRoute(routes, "/summarize", "OPTIONS")
+
+    const response = await route.handler(
+      {},
+      new Request("https://virgo.example/summarize", {
+        method: "OPTIONS",
+        headers: { Origin: "null" },
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("null")
+  })
+
   it("requires auth for summarize by default", async () => {
     const routes = await loadRoutes()
     const route = findRoute(routes, "/summarize", "POST")

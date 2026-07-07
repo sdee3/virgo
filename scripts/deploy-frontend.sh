@@ -54,8 +54,8 @@ write_production_env() {
   local env_file="${SCRIPT_DIR}/../frontend/.env.production"
 
   cat > "${env_file}" <<EOF
-VITE_CONVEX_URL=${VITE_CONVEX_URL:-https://tangible-impala-518.convex.cloud}
-VITE_CONVEX_SITE_URL=${VITE_CONVEX_SITE_URL:-https://tangible-impala-518.convex.site}
+VITE_CONVEX_URL=${VITE_CONVEX_URL:-https://moonlit-ibex-457.convex.cloud}
+VITE_CONVEX_SITE_URL=${VITE_CONVEX_SITE_URL:-https://moonlit-ibex-457.convex.site}
 VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY:-pk_live_Y2xlcmsuc2RlZTMuY29tJA}
 VITE_CLERK_SIGN_IN_URL=${VITE_CLERK_SIGN_IN_URL:-https://identity.sdee3.com/sign-in}
 VITE_CLERK_SIGN_UP_URL=${VITE_CLERK_SIGN_UP_URL:-https://identity.sdee3.com/sign-up}

@@ -36,7 +36,6 @@ Use this checklist before each production deploy.
 ## Validation
 
 - [ ] Run `pnpm test` in `backend/`.
-- [ ] Run `pnpm test` in `frontend/` if a frontend test script exists.
 - [ ] Run `pnpm build` in `frontend/`.
 - [ ] Smoke-test `/summarize`, `/readings`, and device linking with:
   - an authenticated user,

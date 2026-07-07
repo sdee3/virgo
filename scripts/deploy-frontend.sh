@@ -2,7 +2,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+FRONTEND_DIR="${REPO_ROOT}/frontend"
+
 source "${SCRIPT_DIR}/.env"
+
+# Resolve dist path from repo root so the script works from any cwd.
+if [[ -z "${DIST_DIR:-}" ]]; then
+  DIST_DIR="${FRONTEND_DIR}/dist"
+elif [[ "${DIST_DIR}" != /* ]]; then
+  DIST_DIR="${REPO_ROOT}/${DIST_DIR#./}"
+fi
 # shellcheck source=../../identity/shared/clerk-csp.sh
 source "${SCRIPT_DIR}/../../identity/shared/clerk-csp.sh"
 
@@ -66,7 +76,7 @@ EOF
 
 echo "=== Building frontend (production env from frontend/.env.production) ==="
 write_production_env
-pnpm --dir ./frontend build --mode production
+pnpm --dir "${FRONTEND_DIR}" build --mode production
 
 echo ""
 echo "=== Uploading dist/ to s3://${BUCKET} (excluding card images) ==="

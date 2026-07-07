@@ -68,83 +68,6 @@ async function collectSingleStreamPage(args: {
   }
 }
 
-async function collectMergedStreamsPage(args: {
-  userQuery: ReadingsQuery
-  deviceQuery: ReadingsQuery
-  skip: number
-  limit: number
-}): Promise<{ readings: ReadingRow[]; hasMore: boolean }> {
-  const targetCount = args.skip + args.limit + 1
-  const merged: ReadingRow[] = []
-  const seen = new Set<string>()
-
-  let userCursor: string | null = null
-  let deviceCursor: string | null = null
-  let userDone = false
-  let deviceDone = false
-  let userBuffer: Doc<"readings">[] = []
-  let deviceBuffer: Doc<"readings">[] = []
-
-  while (
-    merged.length < targetCount &&
-    (!userDone || userBuffer.length > 0 || !deviceDone || deviceBuffer.length > 0)
-  ) {
-    if (userBuffer.length === 0 && !userDone) {
-      const batch = await args.userQuery.paginate({
-        cursor: userCursor,
-        numItems: PAGINATION_CHUNK_SIZE,
-      })
-      userBuffer = batch.page
-      userCursor = batch.continueCursor
-      userDone = batch.isDone
-    }
-
-    if (deviceBuffer.length === 0 && !deviceDone) {
-      const batch = await args.deviceQuery.paginate({
-        cursor: deviceCursor,
-        numItems: PAGINATION_CHUNK_SIZE,
-      })
-      deviceBuffer = batch.page
-      deviceCursor = batch.continueCursor
-      deviceDone = batch.isDone
-    }
-
-    const nextUser = userBuffer[0]
-    const nextDevice = deviceBuffer[0]
-
-    if (!nextUser && !nextDevice) {
-      break
-    }
-
-    const useUser =
-      nextUser &&
-      (!nextDevice || nextUser.drawnAt >= nextDevice.drawnAt)
-
-    const nextRow = useUser ? userBuffer.shift() : deviceBuffer.shift()
-    if (!nextRow) {
-      continue
-    }
-
-    const rowId = String(nextRow._id)
-    if (seen.has(rowId)) {
-      continue
-    }
-
-    seen.add(rowId)
-    merged.push(toReadingRow(nextRow))
-  }
-
-  return {
-    readings: merged.slice(args.skip, args.skip + args.limit),
-    hasMore:
-      merged.length > args.skip + args.limit ||
-      !userDone ||
-      userBuffer.length > 0 ||
-      !deviceDone ||
-      deviceBuffer.length > 0,
-  }
-}
-
 export const saveReading = internalMutation({
   args: {
     deviceId: v.string(),
@@ -197,19 +120,16 @@ export const listReadings = internalQuery({
     hasMore: v.boolean(),
   }),
   handler: async (ctx, { deviceId, clerkUserId, limit, skip = 0 }) => {
+    // Signed-in users: query by clerkUserId only. Convex allows one paginated
+    // query per function, and device readings are stamped or linked on sign-in.
     if (clerkUserId) {
-      return await collectMergedStreamsPage({
-        userQuery: ctx.db
-        .query("readings")
-        .withIndex("by_clerkUserId_drawnAt", (q) =>
-          q.eq("clerkUserId", clerkUserId),
-        )
-        .order("desc"),
-        deviceQuery: ctx.db
-        .query("readings")
-        .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
-        .order("desc")
-        ,
+      return await collectSingleStreamPage({
+        query: ctx.db
+          .query("readings")
+          .withIndex("by_clerkUserId_drawnAt", (q) =>
+            q.eq("clerkUserId", clerkUserId),
+          )
+          .order("desc"),
         skip,
         limit,
       })

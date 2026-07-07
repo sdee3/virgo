@@ -112,7 +112,7 @@ describe("readings security hardening", () => {
     expect((module.linkDeviceToUser as any).kind).toBe("mutation")
   })
 
-  it("pages merged readings without collecting the entire history", async () => {
+  it("pages signed-in readings by clerkUserId without collecting the entire history", async () => {
     const module = await import("./readings")
 
     const userRows: TestReading[] = [
@@ -187,21 +187,21 @@ describe("readings security hardening", () => {
     expect(result).toEqual({
       readings: [
         {
-          _id: "d-8",
-          _creationTime: 8,
-          cardName: "The Star",
-          summary: "d8",
-          drawnAt: 8,
-        },
-        {
           _id: "shared-7",
           _creationTime: 7,
           cardName: "The Magician",
           summary: "shared",
           drawnAt: 7,
         },
+        {
+          _id: "u-3",
+          _creationTime: 3,
+          cardName: "The Hermit",
+          summary: "u3",
+          drawnAt: 3,
+        },
       ],
-      hasMore: true,
+      hasMore: false,
     })
   })
 })

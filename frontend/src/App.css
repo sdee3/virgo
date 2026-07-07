@@ -223,6 +223,9 @@ body {
 .past-readings-page__content {
   width: 100%;
   max-width: 420px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
 }
 
 .past-readings-page__content .past-readings {
@@ -274,7 +277,10 @@ body {
 .credits-page__content {
   width: 100%;
   max-width: 520px;
-  padding: 0 16px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: 48px;
+  box-sizing: border-box;
 }
 
 .credits-section {
@@ -680,48 +686,39 @@ body {
 }
 
 .reading-chrome__toolbar {
-  position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  column-gap: 8px;
   width: 100%;
   min-height: 44px;
   margin-bottom: 20px;
 }
 
 .reading-chrome__center {
-  position: absolute;
-  left: 0;
-  right: 0;
+  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
-  padding: 0 56px;
-  pointer-events: none;
-}
-
-.reading-chrome__center .title-btn,
-.reading-chrome__center .past-readings-page__title,
-.reading-chrome__center .credits-page__title {
-  pointer-events: auto;
 }
 
 .reading-chrome__slot {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
-  flex: 0 0 auto;
+  min-width: 44px;
 }
 
 .reading-chrome__slot--start {
+  grid-column: 1;
+  justify-self: start;
   justify-content: flex-start;
 }
 
 .reading-chrome__slot--end {
+  grid-column: 3;
   gap: 8px;
+  justify-self: end;
   justify-content: flex-end;
 }
 
@@ -1082,6 +1079,24 @@ body {
   50% { background-position: 100% center; }
 }
 
+.app--reading:has(.past-readings-page),
+.app--reading:has(.credits-page) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.past-readings-page > .reading-chrome,
+.credits-page > .reading-chrome {
+  max-width: none;
+}
+
+.past-readings-page > .reading-chrome .reading-chrome__toolbar,
+.credits-page > .reading-chrome .reading-chrome__toolbar {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1167,19 +1182,4 @@ body {
     font-size: clamp(2.5rem, 8vw, 3.25rem);
   }
 
-  .app--reading:has(.past-readings-page),
-  .app--reading:has(.credits-page) {
-    padding-left: 0;
-    padding-right: 0;
-  }
-
-  .past-readings-page > .reading-chrome,
-  .credits-page > .reading-chrome {
-    max-width: none;
-  }
-
-  .past-readings-page > .reading-chrome .reading-chrome__toolbar,
-  .credits-page > .reading-chrome .reading-chrome__toolbar {
-    padding-inline: max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
-  }
 }

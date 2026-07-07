@@ -198,11 +198,15 @@ body {
 .past-readings-page {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   align-self: stretch;
   width: 100%;
   max-width: 960px;
   flex: 1;
+}
+
+.past-readings-page > .reading-chrome {
+  align-self: stretch;
 }
 
 .past-readings-page__title,
@@ -219,7 +223,6 @@ body {
 .past-readings-page__content {
   width: 100%;
   max-width: 420px;
-  align-self: center;
 }
 
 .past-readings-page__content .past-readings {
@@ -257,18 +260,21 @@ body {
 .credits-page {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   align-self: stretch;
   width: 100%;
   max-width: 960px;
   flex: 1;
 }
 
+.credits-page > .reading-chrome {
+  align-self: stretch;
+}
+
 .credits-page__content {
   width: 100%;
   max-width: 520px;
   padding: 0 16px 48px;
-  align-self: center;
 }
 
 .credits-section {

@@ -15,6 +15,10 @@ import {
 } from "./lib/identitySetup"
 import "./App.css"
 
+if (import.meta.env.PROD) {
+  void import("./pwa")
+}
+
 const convexUrl = import.meta.env.VITE_CONVEX_URL as string
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string
 const signInUrl = import.meta.env.VITE_CLERK_SIGN_IN_URL as string

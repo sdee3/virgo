@@ -13,6 +13,8 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
+declare const __BUILD_ID__: string
+
 declare module "@convex-api" {
   export { api } from "../../backend/convex/_generated/api"
 }

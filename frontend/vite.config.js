@@ -3,14 +3,38 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
+const BUILD_ID = new Date().toISOString()
+
+function buildIdPlugin(buildId) {
+  return {
+    name: 'build-id',
+    config() {
+      return {
+        define: {
+          __BUILD_ID__: JSON.stringify(buildId),
+        },
+      }
+    },
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'build-id.txt',
+        source: buildId,
+      })
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
+    buildIdPlugin(BUILD_ID),
     VitePWA({
       devOptions: {
         enabled: false,
       },
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Virgo — One-Card Tarot Reading',
@@ -31,11 +55,34 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
-        // The @2x cards are large; keep them out of the precache and cache
-        // them on demand the first time a high-DPR device requests one.
-        globIgnores: ['**/cards/2x/**'],
+        // Installability only — no offline shell; always fetch fresh HTML/JS/CSS.
+        globPatterns: ['**/*.{ico,png,svg}'],
+        globIgnores: ['**/cards/**'],
+        navigateFallback: null,
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: ({ request }) =>
+              request.destination === 'script' ||
+              request.destination === 'style',
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: /^https:\/\/.*\.convex\.cloud\/.*/i,
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: /^https:\/\/.*\.clerk\.accounts\.dev\/.*/i,
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: /^https:\/\/.*\.clerk\.com\/.*/i,
+            handler: 'NetworkOnly',
+          },
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/cards/2x/'),
             handler: 'CacheFirst',

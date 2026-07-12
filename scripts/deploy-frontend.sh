@@ -79,12 +79,51 @@ write_production_env
 pnpm --dir "${FRONTEND_DIR}" build --mode production
 
 echo ""
-echo "=== Uploading dist/ to s3://${BUCKET} (excluding card images) ==="
+echo "=== Uploading long-lived static files (excluding card images) ==="
 aws s3 sync "${DIST_DIR}" "s3://${BUCKET}" \
   --delete \
+  --region "${REGION}" \
   "${SYNC_EXCLUDES[@]}" \
   "${CARD_EXCLUDES[@]}" \
-  --region "${REGION}"
+  --exclude "assets/*" \
+  --exclude "index.html" \
+  --exclude "sw.js" \
+  --exclude "registerSW.js" \
+  --exclude "manifest.webmanifest" \
+  --exclude "build-id.txt" \
+  --exclude "workbox-*.js" \
+  --cache-control "public, max-age=31536000, immutable"
+
+if [[ -d "${DIST_DIR}/assets" ]]; then
+  aws s3 cp "${DIST_DIR}/assets" "s3://${BUCKET}/assets" \
+    --recursive \
+    --region "${REGION}" \
+    --cache-control "public, max-age=31536000, immutable"
+fi
+
+SHELL_CACHE_CONTROL="no-cache, must-revalidate"
+for shell_file in sw.js registerSW.js manifest.webmanifest build-id.txt; do
+  if [[ -f "${DIST_DIR}/${shell_file}" ]]; then
+    aws s3 cp "${DIST_DIR}/${shell_file}" "s3://${BUCKET}/${shell_file}" \
+      --region "${REGION}" \
+      --cache-control "${SHELL_CACHE_CONTROL}"
+  fi
+done
+
+for workbox_file in "${DIST_DIR}"/workbox-*.js; do
+  if [[ -f "${workbox_file}" ]]; then
+    aws s3 cp "${workbox_file}" "s3://${BUCKET}/$(basename "${workbox_file}")" \
+      --region "${REGION}" \
+      --cache-control "${SHELL_CACHE_CONTROL}"
+  fi
+done
+
+echo ""
+echo "=== Uploading index.html (no edge cache) ==="
+aws s3 cp "${DIST_DIR}/index.html" "s3://${BUCKET}/index.html" \
+  --region "${REGION}" \
+  --content-type "text/html" \
+  --cache-control "no-cache, no-store, must-revalidate"
 
 if [[ "${FORCE_ASSETS}" == true ]]; then
   echo ""
@@ -114,3 +153,4 @@ INVALIDATION_ID=$(aws cloudfront create-invalidation \
 echo "Invalidation created: ${INVALIDATION_ID}"
 echo ""
 echo "=== Deploy complete ==="
+echo "HTML shell + SW: no-cache | /assets/*: immutable, max-age=31536000"

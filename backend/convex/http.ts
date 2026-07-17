@@ -18,7 +18,12 @@ import {
   validateCardName,
 } from "./lib/httpSecurity"
 
-type BigThree = { sunSign: string; moonSign: string; ascendantSign: string }
+type BigThree = {
+  sunSign: string
+  moonSign: string
+  /** Omitted when birth time is unknown. */
+  ascendantSign?: string
+}
 
 type DatingMatchContext = {
   type: "dating-match"
@@ -69,13 +74,18 @@ function isNonEmptyString(value: unknown, maxLen: number): value is string {
 
 function validateBigThree(
   value: unknown,
-  label: string,
-): { sunSign: string; moonSign: string; ascendantSign: string } | null {
+  _label: string,
+): BigThree | null {
   if (!value || typeof value !== "object") return null
   const obj = value as Record<string, unknown>
   if (
     !isNonEmptyString(obj.sunSign, 32) ||
-    !isNonEmptyString(obj.moonSign, 32) ||
+    !isNonEmptyString(obj.moonSign, 32)
+  ) {
+    return null
+  }
+  if (
+    obj.ascendantSign !== undefined &&
     !isNonEmptyString(obj.ascendantSign, 32)
   ) {
     return null
@@ -83,8 +93,17 @@ function validateBigThree(
   return {
     sunSign: obj.sunSign.trim(),
     moonSign: obj.moonSign.trim(),
-    ascendantSign: obj.ascendantSign.trim(),
+    ...(typeof obj.ascendantSign === "string"
+      ? { ascendantSign: obj.ascendantSign.trim() }
+      : {}),
   }
+}
+
+function formatBigThreeLine(label: string, signs: BigThree): string {
+  const rising = signs.ascendantSign
+    ? `, Ascendant ${signs.ascendantSign}`
+    : " (Rising unknown — birth time not provided)"
+  return `${label}: Sun ${signs.sunSign}, Moon ${signs.moonSign}${rising}.`
 }
 
 function validateStringArray(
@@ -264,8 +283,8 @@ function buildDatingMatchUserMessage(
   const { matchDisplayName, viewer, candidate, synastry } = context
   const lines = [
     `The user is exploring a potential romantic connection with ${matchDisplayName}.`,
-    `Viewer Big Three: Sun ${viewer.sunSign}, Moon ${viewer.moonSign}, Ascendant ${viewer.ascendantSign}.`,
-    `Candidate Big Three: Sun ${candidate.sunSign}, Moon ${candidate.moonSign}, Ascendant ${candidate.ascendantSign}.`,
+    formatBigThreeLine("Viewer Big Three", viewer),
+    formatBigThreeLine("Candidate Big Three", candidate),
   ]
 
   if (synastry?.overallBand) {
@@ -285,6 +304,12 @@ function buildDatingMatchUserMessage(
     `They drew ${cardName}. Interpret this card specifically in light of this connection — chemistry, communication, emotional fit — in 2–3 warm second-person sentences. Do not claim certainty about the other person's feelings.`,
   )
 
+  if (!viewer.ascendantSign || !candidate.ascendantSign) {
+    lines.push(
+      "One or both charts have an unknown Rising sign (birth time not provided). Do not invent or guess Ascendant signs.",
+    )
+  }
+
   if (cardName.startsWith("Reversed ")) {
     lines.push(
       "Since the card is reversed, address how its energy may be blocked, internalized, or requiring deeper introspection.",
@@ -299,10 +324,13 @@ function buildDailyBigThreeUserMessage(
   context: DailyBigThreeContext,
 ): string {
   const { viewer, localDate, timeZone } = context
+  const hasRising = Boolean(viewer.ascendantSign)
   const lines = [
     `The user is drawing a daily tarot card for ${localDate}${timeZone ? ` (${timeZone})` : ""}.`,
-    `Viewer Big Three: Sun ${viewer.sunSign}, Moon ${viewer.moonSign}, Ascendant ${viewer.ascendantSign}.`,
-    `They drew ${cardName}. Interpret this card for their day ahead — what themes, opportunities, or inner work it highlights through their Sun, Moon, and Rising signs — in 2–3 warm second-person sentences.`,
+    formatBigThreeLine("Viewer chart", viewer),
+    hasRising
+      ? `They drew ${cardName}. Interpret this card for their day ahead — what themes, opportunities, or inner work it highlights through their Sun, Moon, and Rising signs — in 2–3 warm second-person sentences.`
+      : `They drew ${cardName}. Interpret this card for their day ahead — what themes, opportunities, or inner work it highlights through their Sun and Moon signs — in 2–3 warm second-person sentences. Do not invent or guess a Rising/Ascendant sign.`,
   ]
 
   if (cardName.startsWith("Reversed ")) {

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "packageManager": "pnpm@11.1.2",
+  "packageManager": "pnpm@11.15.0",
   "engines": {
     "node": ">=24.0.0",
     "pnpm": ">=11.0.0"
@@ -15,18 +15,18 @@
     "upscale-cards": "node scripts/upscale-cards.mjs"
   },
   "dependencies": {
-    "@clerk/react": "^6.0.0",
+    "@clerk/react": "^6.12.5",
     "@sdee3/credits": "file:../../identity/packages/credits",
-    "convex": "^1.42.0",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "convex": "^1.42.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
-    "@types/react": "^19.2.14",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.13",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5",
     "vite-plugin-pwa": "^1.3.0",
     "workbox-window": "^7.4.1"
   }

@@ -48,6 +48,7 @@ body {
 
 .user-menu {
   position: relative;
+  z-index: 20;
   flex-shrink: 0;
 }
 
@@ -92,12 +93,13 @@ body {
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
+  z-index: 30;
   min-width: 220px;
   max-width: min(280px, calc(100vw - 32px));
   text-align: left;
   border-radius: 12px;
   border: 1px solid rgba(138, 155, 184, 0.22);
-  background: rgba(15, 27, 45, 0.98);
+  background: #0f1b2d;
   box-shadow:
     0 4px 6px rgba(0, 0, 0, 0.18),
     0 16px 40px rgba(0, 0, 0, 0.42);

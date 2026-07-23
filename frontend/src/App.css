@@ -629,6 +629,79 @@ body {
   padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
 }
 
+.idle-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.idle-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.idle-shell--exiting {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  flex: none;
+  padding: 48px 20px 40px;
+  padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
+  pointer-events: none;
+}
+
+.app--idle.app--fanned .idle-shell--exiting {
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  padding-bottom: 0;
+}
+
+.idle-top--exiting {
+  animation-name: idle-exit-up;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes idle-exit-up {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-32vh);
+    opacity: 0;
+  }
+}
+
+.idle-footer--exiting,
+.idle-blessing--exiting {
+  animation-name: idle-exit-fade;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes idle-exit-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+.reading-chrome--enter {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app--reading > .reading-chrome {
+  transition: opacity 0.4s ease-out;
+}
+
 .idle-content {
   flex: 1;
   display: flex;
@@ -953,12 +1026,62 @@ body {
   animation: fadeIn 0.5s ease-out;
 }
 
+.card-area--revealing {
+  /* Keep layout stable while the flying card is still off-screen. */
+  animation: none;
+}
+
 .card-wrapper {
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 10px 0;
   flex: 1;
+  perspective: 1200px;
+}
+
+.card-motion {
+  position: relative;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.card-motion--revealing {
+  animation-name: card-draw-in-desktop;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: forwards;
+}
+
+.card-faces {
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.card-face {
+  display: block;
+  border-radius: 12px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card-face--front {
+  position: relative;
+  transform: rotateY(0deg);
+  /* box-shadow (not filter: drop-shadow) so the card isn't rasterized into a
+     CSS-resolution filter buffer and re-blurred on high-DPR mobile screens. */
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+
+.card-face--front.card-face--reversed {
+  /* Keep reversal on the face so the flip reveal already ends upside-down. */
+  transform: rotateY(0deg) rotate(180deg);
+}
+
+.card-face--back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
 }
 
 .card-text {
@@ -967,15 +1090,44 @@ body {
   align-items: flex-start;
   text-align: left;
   flex: 1;
+  transition: opacity 0.35s ease-out;
+}
+
+.card-text--hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .card-canvas {
   display: block;
   will-change: transform;
-  /* box-shadow (not filter: drop-shadow) so the card isn't rasterized into a
-     CSS-resolution filter buffer and re-blurred on high-DPR mobile screens. */
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
   border-radius: 12px;
+}
+
+/* Desktop / default: card enters from the left, then flips face-up. */
+@keyframes card-draw-in-desktop {
+  0% {
+    transform: translate3d(-110vw, 8vh, 0) rotate(-18deg) rotateY(180deg);
+  }
+  42% {
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateY(180deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateY(0deg);
+  }
+}
+
+/* Mobile: card is drawn up from the bottom-left deck area, then flips. */
+@keyframes card-draw-in-mobile {
+  0% {
+    transform: translate3d(-42vw, 72vh, 0) rotate(-28deg) rotateY(180deg);
+  }
+  42% {
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateY(180deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateY(0deg);
+  }
 }
 
 .card-name {
@@ -1169,6 +1321,10 @@ body {
   .card-area {
     flex-direction: column;
     align-items: center;
+  }
+
+  .card-motion--revealing {
+    animation-name: card-draw-in-mobile;
   }
 
   .card-text {

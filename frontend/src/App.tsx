@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, type AnimationEvent } from "react"
 import { useQuery } from "convex/react"
 import { CARDS } from "./data/cards"
 import { fetchReadings, summarizeCard } from "./lib/api"
@@ -21,6 +21,7 @@ import {
   useIdentityUserReady,
 } from "./lib/identitySetup"
 import { parseCardName } from "./utils/parseCardName"
+import { IDLE_EXIT_MS } from "./lib/cardAsset"
 import type { StoredReading } from "./types"
 import "./App.css"
 
@@ -63,6 +64,7 @@ function AppInner() {
   const [pastHasMore, setPastHasMore] = useState(false)
   const [showAllPastReadings, setShowAllPastReadings] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
+  const [idleExiting, setIdleExiting] = useState(false)
 
   const isReversedRef = useRef(false)
   const drawnAtRef = useRef<number>(0)
@@ -109,12 +111,19 @@ function AppInner() {
       setCardName("")
       setIsDrawing(false)
       setIsSummarizing(false)
+      setIdleExiting(false)
       setSummary(null)
       setSummaryError(
         `Not enough credits. You need ${tarotCost.toLocaleString()} credits but have ${balance.balance.toLocaleString()}.`,
       )
       setRemaining(null)
       return
+    }
+
+    // From the idle homepage, keep the top chrome mounted so it can slide up
+    // and fade out while the drawn card enters underneath.
+    if (!cardFile) {
+      setIdleExiting(true)
     }
 
     setPageView("home")
@@ -166,6 +175,7 @@ function AppInner() {
     })()
   }, [
     balance,
+    cardFile,
     isSignedIn,
     loadPastReadings,
     showAllPastReadings,
@@ -176,11 +186,29 @@ function AppInner() {
     setIsDrawing(false)
   }, [])
 
+  const handleIdleExitEnd = useCallback(
+    (event: AnimationEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) return
+      if (event.animationName !== "idle-exit-up") return
+      setIdleExiting(false)
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!idleExiting) return
+    const timeoutId = window.setTimeout(() => {
+      setIdleExiting(false)
+    }, IDLE_EXIT_MS + 100)
+    return () => window.clearTimeout(timeoutId)
+  }, [idleExiting])
+
   const openPastReading = useCallback((reading: StoredReading) => {
     const parsed = parseCardName(reading.cardName)
     if (!parsed) return
     setPageView("home")
     setViewingPast(true)
+    setIdleExiting(false)
     setCardFile(parsed.file)
     setCardName(reading.cardName)
     setIsReversed(parsed.reversed)
@@ -195,6 +223,7 @@ function AppInner() {
   const backToHome = useCallback(() => {
     setPageView("home")
     setViewingPast(false)
+    setIdleExiting(false)
     setCardFile(null)
     setCardName("")
     setSummary(null)
@@ -205,6 +234,7 @@ function AppInner() {
   const openPastReadingsPage = useCallback(() => {
     setShowAllPastReadings(true)
     setPageView("past-readings")
+    setIdleExiting(false)
     setCardFile(null)
     setCardName("")
     setSummary(null)
@@ -215,6 +245,7 @@ function AppInner() {
 
   const openCreditsPage = useCallback(() => {
     setPageView("credits")
+    setIdleExiting(false)
     setCardFile(null)
     setCardName("")
     setSummary(null)
@@ -243,6 +274,7 @@ function AppInner() {
   const showPastReadingsPage = pageView === "past-readings" && !cardFile
   const showCreditsPage = pageView === "credits" && !cardFile
   const isHomepage = !cardFile && pageView === "home"
+  const showIdleShell = isHomepage || idleExiting
   const showFannedCards = useShowFannedCards()
   const userMenu = (
     <UserMenu onPastReading={openPastReadingsPage} onCredits={openCreditsPage} />
@@ -254,7 +286,7 @@ function AppInner() {
 
   return (
     <div
-      className={`app${!isHomepage ? " app--reading" : ""}${isHomepage ? " app--idle" : ""}${isHomepage && showFannedCards ? " app--fanned" : ""}`}
+      className={`app${!isHomepage ? " app--reading" : ""}${showIdleShell ? " app--idle" : ""}${showIdleShell && showFannedCards ? " app--fanned" : ""}${idleExiting ? " app--idle-exiting" : ""}`}
     >
       {showPastReadingsPage ? (
         <PastReadingsPage
@@ -268,101 +300,143 @@ function AppInner() {
         />
       ) : showCreditsPage ? (
         <CreditsPage onBack={backToHome} toolbarEnd={userMenu} />
-      ) : !cardFile ? (
-        <>
-          <header className="reading-chrome">
-            <div className="reading-chrome__toolbar">
-              <div className="reading-chrome__slot reading-chrome__slot--start" />
-              <div className="reading-chrome__center" />
-              <div className="reading-chrome__slot reading-chrome__slot--end">
-                {userMenu}
-              </div>
-            </div>
-          </header>
-          <div className="idle-content">
-            {appTitle}
-            <p className="subtitle">What question is on your mind?</p>
-            <button
-              className="draw-btn"
-              onClick={drawCard}
-              disabled={isDrawing || (isSignedIn && !creditsKnown) || !hasEnoughCredits}
-            >
-              Pull a card
-            </button>
-            {identityCreditsEnabled &&
-            isSignedIn &&
-            creditsKnown &&
-            !hasEnoughCredits ? (
-              <p className="subtitle subtitle--error">
-                Not enough credits for a reading ({tarotCost.toLocaleString()}{" "}
-                required).{" "}
-                <button
-                  type="button"
-                  className="subtitle-link"
-                  onClick={openCreditsPage}
-                >
-                  Top up credits
-                </button>
-              </p>
-            ) : null}
-          </div>
-          {showFannedCards ? (
-            <div className="idle-footer">
-              {blessing}
-              <FannedCards />
-            </div>
-          ) : (
-            blessing
-          )}
-        </>
       ) : (
         <>
-          <header className="reading-chrome">
-            <div className="reading-chrome__toolbar">
-              <div className="reading-chrome__slot reading-chrome__slot--start">
-                <button
-                  type="button"
-                  className="chrome-btn back-btn"
-                  onClick={backToHome}
-                  aria-label="Back to home"
+          {showIdleShell && (
+            <div
+              className={`idle-shell${idleExiting ? " idle-shell--exiting" : ""}`}
+            >
+              <div
+                className={`idle-top${idleExiting ? " idle-top--exiting" : ""}`}
+                style={
+                  idleExiting
+                    ? { animationDuration: `${IDLE_EXIT_MS}ms` }
+                    : undefined
+                }
+                onAnimationEnd={handleIdleExitEnd}
+              >
+                <header className="reading-chrome">
+                  <div className="reading-chrome__toolbar">
+                    <div className="reading-chrome__slot reading-chrome__slot--start" />
+                    <div className="reading-chrome__center" />
+                    <div className="reading-chrome__slot reading-chrome__slot--end">
+                      {userMenu}
+                    </div>
+                  </div>
+                </header>
+                <div className="idle-content">
+                  {appTitle}
+                  <p className="subtitle">What question is on your mind?</p>
+                  <button
+                    className="draw-btn"
+                    onClick={drawCard}
+                    disabled={
+                      isDrawing ||
+                      idleExiting ||
+                      (isSignedIn && !creditsKnown) ||
+                      !hasEnoughCredits
+                    }
+                  >
+                    Pull a card
+                  </button>
+                  {identityCreditsEnabled &&
+                  isSignedIn &&
+                  creditsKnown &&
+                  !hasEnoughCredits ? (
+                    <p className="subtitle subtitle--error">
+                      Not enough credits for a reading (
+                      {tarotCost.toLocaleString()} required).{" "}
+                      <button
+                        type="button"
+                        className="subtitle-link"
+                        onClick={openCreditsPage}
+                      >
+                        Top up credits
+                      </button>
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              {showFannedCards ? (
+                <div
+                  className={`idle-footer${idleExiting ? " idle-footer--exiting" : ""}`}
+                  style={
+                    idleExiting
+                      ? { animationDuration: `${IDLE_EXIT_MS}ms` }
+                      : undefined
+                  }
                 >
-                  <BackIcon />
-                </button>
-              </div>
-              <div className="reading-chrome__center">{appTitle}</div>
-              <div className="reading-chrome__slot reading-chrome__slot--end">
-                {summary && !isSummarizing ? (
-                  <ShareReadingButton
-                    cardFile={cardFile}
-                    cardName={cardName}
-                    isReversed={isReversed}
-                    summary={summary}
-                    onShareError={setShareError}
-                  />
-                ) : null}
-              </div>
+                  {blessing}
+                  <FannedCards />
+                </div>
+              ) : (
+                <div
+                  className={idleExiting ? "idle-blessing--exiting" : undefined}
+                  style={
+                    idleExiting
+                      ? { animationDuration: `${IDLE_EXIT_MS}ms` }
+                      : undefined
+                  }
+                >
+                  {blessing}
+                </div>
+              )}
             </div>
-          </header>
-          <div className="reading-view">
-            <CardView
-              cardFile={cardFile}
-              cardName={cardName}
-              isReversed={isReversed}
-              isDrawing={isDrawing}
-              isSummarizing={isSummarizing}
-              summary={summary}
-              summaryError={summaryError}
-              shareError={shareError}
-              remaining={remaining}
-              onDrawCard={drawCard}
-              onCardReady={handleCardReady}
-              hideDrawAnother={viewingPast}
-            />
-          </div>
+          )}
+
+          {cardFile && (
+            <>
+              <header
+                className={`reading-chrome${idleExiting ? " reading-chrome--enter" : ""}`}
+              >
+                <div className="reading-chrome__toolbar">
+                  <div className="reading-chrome__slot reading-chrome__slot--start">
+                    <button
+                      type="button"
+                      className="chrome-btn back-btn"
+                      onClick={backToHome}
+                      aria-label="Back to home"
+                    >
+                      <BackIcon />
+                    </button>
+                  </div>
+                  <div className="reading-chrome__center">{appTitle}</div>
+                  <div className="reading-chrome__slot reading-chrome__slot--end">
+                    {summary && !isSummarizing ? (
+                      <ShareReadingButton
+                        cardFile={cardFile}
+                        cardName={cardName}
+                        isReversed={isReversed}
+                        summary={summary}
+                        onShareError={setShareError}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              </header>
+              <div className="reading-view">
+                <CardView
+                  cardFile={cardFile}
+                  cardName={cardName}
+                  isReversed={isReversed}
+                  isDrawing={isDrawing}
+                  isSummarizing={isSummarizing}
+                  summary={summary}
+                  summaryError={summaryError}
+                  shareError={shareError}
+                  remaining={remaining}
+                  onDrawCard={drawCard}
+                  onCardReady={handleCardReady}
+                  hideDrawAnother={viewingPast}
+                  animateReveal={!viewingPast}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
 
-      {!isHomepage && blessing}
+      {!isHomepage && !idleExiting && blessing}
     </div>
   )
 }

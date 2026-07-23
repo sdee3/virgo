@@ -42,13 +42,20 @@ export interface DrawCardFrameOptions {
   glossPos?: { x: number; y: number }
 }
 
-export function drawCardFrame(
+export interface DrawCardFrameAtSizeOptions {
+  imageW: number
+  imageH: number
+  glossOpacity?: number
+  glossPos?: { x: number; y: number }
+}
+
+function paintCardFrame(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
-  options: DrawCardFrameOptions
-): CardFrameDimensions {
-  const { scale, glossOpacity = 0, glossPos = { x: 0.5, y: 0.5 } } = options
-  const dims = getCardFrameDimensions(img, scale)
+  dims: CardFrameDimensions,
+  glossOpacity: number,
+  glossPos: { x: number; y: number }
+): void {
   const { imageW, imageH, border, cr, shadowBlur, width: bw, height: bh } = dims
 
   ctx.imageSmoothingEnabled = true
@@ -103,6 +110,50 @@ export function drawCardFrame(
   }
 
   ctx.restore()
+}
 
+export function frameDimensionsForImageSize(
+  imageW: number,
+  imageH: number
+): CardFrameDimensions {
+  const border = FRAME_BORDER_PX
+  const cr = FRAME_CORNER_RADIUS_PX
+  const shadowBlur = FRAME_SHADOW_BLUR_PX
+  return {
+    imageW,
+    imageH,
+    border,
+    cr,
+    shadowBlur,
+    width: imageW + border * 2,
+    height: imageH + border * 2,
+  }
+}
+
+export function drawCardFrame(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  options: DrawCardFrameOptions
+): CardFrameDimensions {
+  const { scale, glossOpacity = 0, glossPos = { x: 0.5, y: 0.5 } } = options
+  const dims = getCardFrameDimensions(img, scale)
+  paintCardFrame(ctx, img, dims, glossOpacity, glossPos)
+  return dims
+}
+
+/** Draw a card face into a fixed image box (used to match front/back flip faces). */
+export function drawCardFrameAtSize(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  options: DrawCardFrameAtSizeOptions
+): CardFrameDimensions {
+  const {
+    imageW,
+    imageH,
+    glossOpacity = 0,
+    glossPos = { x: 0.5, y: 0.5 },
+  } = options
+  const dims = frameDimensionsForImageSize(imageW, imageH)
+  paintCardFrame(ctx, img, dims, glossOpacity, glossPos)
   return dims
 }

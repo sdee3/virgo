@@ -37,9 +37,9 @@ Usage: $(basename "$0") [--force]
 
 Deploy the frontend build to S3 and invalidate CloudFront.
 
-  --force  Sync the full tarot card deck under /cards (delete orphans and
-           upload changes). Skipped by default to avoid costly S3 operations.
-           Card chrome such as tarot-rear-bg.jpg is always uploaded.
+  --force  Sync card images under /cards (including tarot-rear-bg.jpg;
+           delete orphans and upload changes). Skipped by default to
+           avoid costly S3 operations.
 EOF
       exit 0
       ;;
@@ -59,15 +59,6 @@ SYNC_EXCLUDES=(
 CARD_EXCLUDES=(
   --exclude "cards/*"
   --exclude "cards/2x/*"
-)
-
-# Lightweight non-deck assets under /cards that must ship with every deploy
-# (the flip animation rear image, etc.). Full webp deck sync stays behind --force.
-CARD_CHROME_INCLUDES=(
-  --exclude "*"
-  --include "*.jpg"
-  --include "*.jpeg"
-  --include "*.png"
 )
 
 write_production_env() {
@@ -135,28 +126,20 @@ aws s3 cp "${DIST_DIR}/index.html" "s3://${BUCKET}/index.html" \
   --content-type "text/html" \
   --cache-control "no-cache, no-store, must-revalidate"
 
-echo ""
-echo "=== Uploading card chrome assets (backs / non-deck images) ==="
-if [[ -d "${DIST_DIR}/cards" ]]; then
+if [[ "${FORCE_ASSETS}" == true ]]; then
+  echo ""
+  echo "=== Uploading card images (--force) ==="
+  if [[ ! -f "${DIST_DIR}/cards/tarot-rear-bg.jpg" ]]; then
+    echo "Warning: ${DIST_DIR}/cards/tarot-rear-bg.jpg missing from build output." >&2
+  fi
   aws s3 sync "${DIST_DIR}/cards" "s3://${BUCKET}/cards" \
-    "${CARD_CHROME_INCLUDES[@]}" \
+    --delete \
     "${SYNC_EXCLUDES[@]}" \
     --region "${REGION}" \
     --cache-control "public, max-age=31536000, immutable"
 else
-  echo "Warning: ${DIST_DIR}/cards is missing; skipping card chrome upload." >&2
-fi
-
-if [[ "${FORCE_ASSETS}" == true ]]; then
   echo ""
-  echo "=== Uploading full card deck (--force) ==="
-  aws s3 sync "${DIST_DIR}/cards" "s3://${BUCKET}/cards" \
-    --delete \
-    "${SYNC_EXCLUDES[@]}" \
-    --region "${REGION}"
-else
-  echo ""
-  echo "=== Skipping full card deck sync (pass --force to sync all /cards) ==="
+  echo "=== Skipping card images (pass --force to sync) ==="
 fi
 
 echo ""

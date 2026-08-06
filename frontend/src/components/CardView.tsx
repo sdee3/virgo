@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react"
 import { CARD_BACK_SRC, CARD_REVEAL_MS, cardSrc } from "../lib/cardAsset"
+import { getCardTargetWidth } from "../lib/cardDisplaySize"
 import {
   drawCardFrameAtSize,
   frameDimensionsForImageSize,
@@ -108,7 +109,7 @@ export function CardView({
       renderCanvas()
       const front = imageRef.current
       if (!front?.naturalWidth) return
-      const targetW = Math.min(window.innerWidth * 0.55, 320)
+      const targetW = getCardTargetWidth()
       const scale = targetW / front.naturalWidth
       const dims = getCardFrameDimensions(front, scale)
       renderBackFace(dims.imageW, dims.imageH)
@@ -138,7 +139,7 @@ export function CardView({
       const front = imageRef.current
       if (!front?.naturalWidth) return
 
-      const targetW = Math.min(window.innerWidth * 0.55, 320)
+      const targetW = getCardTargetWidth()
       const scale = targetW / front.naturalWidth
       const dims = getCardFrameDimensions(front, scale)
       renderBackFace(dims.imageW, dims.imageH)

@@ -5,7 +5,7 @@ import { drawCardFrame, getCardFrameDimensions } from "../lib/drawCardFrame"
 
 const FAN_COUNT = 5
 const MOBILE_MAX_WIDTH = 768
-const MIN_HEIGHT = 600
+const MIN_HEIGHT = 720
 const FAN_ROTATIONS = [-26, -13, 0, 13, 26]
 const FAN_OFFSETS_X = [-72, -36, 0, 36, 72]
 const VISIBLE_FRACTION = 0.8

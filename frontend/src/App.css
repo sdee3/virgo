@@ -805,7 +805,7 @@ body {
 }
 
 .reading-chrome .title-btn {
-  font-size: clamp(1.5rem, 5vw, 2.25rem);
+  font-size: clamp(1.75rem, 5.5vw, 2.5rem);
   line-height: 1;
 }
 
@@ -1337,7 +1337,24 @@ body {
   }
 
   .reading-chrome .title-btn {
-    font-size: clamp(2.5rem, 8vw, 3.25rem);
+    font-size: clamp(2.75rem, 9vw, 3.5rem);
+  }
+}
+
+@media (max-width: 768px) and (max-height: 750px) {
+  .idle-content .title-btn {
+    font-size: clamp(2.5rem, 10vw, 4rem);
   }
 
+  .reading-chrome .title-btn {
+    font-size: clamp(1.75rem, 6.25vw, 2.5rem);
+  }
+
+  .app--idle.app--fanned .idle-content {
+    padding-top: clamp(16px, 6vh, 48px);
+  }
+
+  .app--idle.app--fanned .title {
+    margin-bottom: 12px;
+  }
 }

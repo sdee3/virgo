@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect, type RefObject } from "react"
+import { getCardTargetWidth } from "../lib/cardDisplaySize"
 import { drawCardFrame, getCardFrameDimensions } from "../lib/drawCardFrame"
 
 const LERP_SPEED = 0.12
@@ -21,7 +22,7 @@ export function useCanvasRenderer(
     if (!ctx) return
 
     const dpr = window.devicePixelRatio || 1
-    const targetW = Math.min(window.innerWidth * 0.55, 320)
+    const targetW = getCardTargetWidth()
     const scale = targetW / img.naturalWidth
     const dims = getCardFrameDimensions(img, scale)
 

@@ -18,7 +18,11 @@ export default defineSchema({
     summary: v.string(),
     drawnAt: v.number(),
     contextType: v.optional(
-      v.union(v.literal("dating-match"), v.literal("daily-big-three")),
+      v.union(
+        v.literal("dating-match"),
+        v.literal("dating-potential-match"),
+        v.literal("daily-big-three"),
+      ),
     ),
     sourceApp: v.optional(v.string()),
     targetProfileId: v.optional(v.string()),

@@ -6,6 +6,7 @@ type TestReading = {
   cardName: string
   summary: string
   drawnAt: number
+  contextType?: string
 }
 
 const mockServer = vi.hoisted(() => ({
@@ -129,6 +130,7 @@ describe("readings security hardening", () => {
         cardName: "The Magician",
         summary: "shared",
         drawnAt: 7,
+        contextType: "dating-potential-match",
       },
       {
         _id: "u-3",
@@ -192,6 +194,7 @@ describe("readings security hardening", () => {
           cardName: "The Magician",
           summary: "shared",
           drawnAt: 7,
+          contextType: "dating-potential-match",
         },
         {
           _id: "u-3",
@@ -202,6 +205,7 @@ describe("readings security hardening", () => {
         },
       ],
       hasMore: false,
+      total: 3,
     })
   })
 })

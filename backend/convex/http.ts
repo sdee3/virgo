@@ -26,7 +26,7 @@ type BigThree = {
 }
 
 type DatingMatchContext = {
-  type: "dating-match"
+  type: "dating-match" | "dating-potential-match"
   sourceApp: "astro-mate"
   matchDisplayName: string
   viewer: BigThree
@@ -124,6 +124,7 @@ function validateStringArray(
 
 function validateDatingMatchContext(
   raw: Record<string, unknown>,
+  type: "dating-match" | "dating-potential-match",
 ): { ok: true; context: DatingMatchContext } | { ok: false; error: string } {
   if (raw.sourceApp !== "astro-mate") {
     return { ok: false, error: "Invalid sourceApp" }
@@ -198,7 +199,7 @@ function validateDatingMatchContext(
   return {
     ok: true,
     context: {
-      type: "dating-match",
+      type,
       sourceApp: "astro-mate",
       matchDisplayName: raw.matchDisplayName.trim(),
       viewer,
@@ -265,8 +266,11 @@ function validateTarotContext(
 
   const raw = value as Record<string, unknown>
 
-  if (raw.type === "dating-match") {
-    return validateDatingMatchContext(raw)
+  if (
+    raw.type === "dating-match" ||
+    raw.type === "dating-potential-match"
+  ) {
+    return validateDatingMatchContext(raw, raw.type)
   }
 
   if (raw.type === "daily-big-three") {
@@ -602,7 +606,7 @@ http.route({
     }
 
     const creditReason =
-      tarotContext?.type === "dating-match"
+      tarotContext && tarotContext.type !== "daily-big-three"
         ? "virgo.dating_match_summary"
         : "virgo.card_summary"
 
@@ -655,9 +659,9 @@ http.route({
     const userMessage = !tarotContext
       ? `Card drawn: ${cardName}
 The user has drawn this card seeking guidance on a question in their life. Speak to the card's general wisdom — its energy, themes, and what reflection it invites.${cardName.startsWith("Reversed ") ? " Since the card is reversed, address how its energy may be blocked, internalized, or requiring deeper introspection." : ""}`
-      : tarotContext.type === "dating-match"
-        ? buildDatingMatchUserMessage(cardName, tarotContext)
-        : buildDailyBigThreeUserMessage(cardName, tarotContext)
+      : tarotContext.type === "daily-big-three"
+        ? buildDailyBigThreeUserMessage(cardName, tarotContext)
+        : buildDatingMatchUserMessage(cardName, tarotContext)
 
     async function refundIfDebited(): Promise<void> {
       if (!debited || !clerkUserId || !idempotencyKey) {
@@ -737,7 +741,7 @@ The user has drawn this card seeking guidance on a question in their life. Speak
         contextType: tarotContext?.type,
         sourceApp: tarotContext?.sourceApp,
         targetProfileId:
-          tarotContext?.type === "dating-match"
+          tarotContext && tarotContext.type !== "daily-big-three"
             ? tarotContext.targetProfileId
             : undefined,
       })

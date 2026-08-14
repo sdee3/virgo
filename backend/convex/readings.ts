@@ -9,6 +9,10 @@ type ReadingRow = {
   cardName: string
   summary: string
   drawnAt: number
+  contextType?:
+    | "dating-match"
+    | "dating-potential-match"
+    | "daily-big-three"
 }
 
 const readingDoc = v.object({
@@ -17,6 +21,13 @@ const readingDoc = v.object({
   cardName: v.string(),
   summary: v.string(),
   drawnAt: v.number(),
+  contextType: v.optional(
+    v.union(
+      v.literal("dating-match"),
+      v.literal("dating-potential-match"),
+      v.literal("daily-big-three"),
+    ),
+  ),
 })
 
 const PAGINATION_CHUNK_SIZE = 25
@@ -39,6 +50,7 @@ function toReadingRow(row: Doc<"readings">): ReadingRow {
     cardName: row.cardName,
     summary: row.summary,
     drawnAt: row.drawnAt,
+    contextType: row.contextType,
   }
 }
 
@@ -68,6 +80,24 @@ async function collectSingleStreamPage(args: {
   }
 }
 
+async function countStream(query: ReadingsQuery): Promise<number> {
+  let total = 0
+  let cursor: string | null = null
+  let isDone = false
+
+  while (!isDone) {
+    const batch = await query.paginate({
+      cursor,
+      numItems: PAGINATION_CHUNK_SIZE,
+    })
+    total += batch.page.length
+    cursor = batch.continueCursor
+    isDone = batch.isDone
+  }
+
+  return total
+}
+
 export const saveReading = internalMutation({
   args: {
     deviceId: v.string(),
@@ -76,7 +106,11 @@ export const saveReading = internalMutation({
     summary: v.string(),
     drawnAt: v.number(),
     contextType: v.optional(
-      v.union(v.literal("dating-match"), v.literal("daily-big-three")),
+      v.union(
+        v.literal("dating-match"),
+        v.literal("dating-potential-match"),
+        v.literal("daily-big-three"),
+      ),
     ),
     sourceApp: v.optional(v.string()),
     targetProfileId: v.optional(v.string()),
@@ -118,31 +152,50 @@ export const listReadings = internalQuery({
   returns: v.object({
     readings: v.array(readingDoc),
     hasMore: v.boolean(),
+    total: v.number(),
   }),
   handler: async (ctx, { deviceId, clerkUserId, limit, skip = 0 }) => {
     // Signed-in users: query by clerkUserId only. Convex allows one paginated
     // query per function, and device readings are stamped or linked on sign-in.
     if (clerkUserId) {
-      return await collectSingleStreamPage({
+      return {
+        ...(await collectSingleStreamPage({
+          query: ctx.db
+            .query("readings")
+            .withIndex("by_clerkUserId_drawnAt", (q) =>
+              q.eq("clerkUserId", clerkUserId),
+            )
+            .order("desc"),
+          skip,
+          limit,
+        })),
+        total: await countStream(
+          ctx.db
+            .query("readings")
+            .withIndex("by_clerkUserId_drawnAt", (q) =>
+              q.eq("clerkUserId", clerkUserId),
+            )
+            .order("desc"),
+        ),
+      }
+    }
+
+    return {
+      ...(await collectSingleStreamPage({
         query: ctx.db
           .query("readings")
-          .withIndex("by_clerkUserId_drawnAt", (q) =>
-            q.eq("clerkUserId", clerkUserId),
-          )
+          .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
           .order("desc"),
         skip,
         limit,
-      })
+      })),
+      total: await countStream(
+        ctx.db
+          .query("readings")
+          .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
+          .order("desc"),
+      ),
     }
-
-    return await collectSingleStreamPage({
-      query: ctx.db
-        .query("readings")
-        .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
-        .order("desc"),
-      skip,
-      limit,
-    })
   },
 })
 

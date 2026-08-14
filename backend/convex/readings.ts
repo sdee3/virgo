@@ -32,17 +32,6 @@ const readingDoc = v.object({
 
 const PAGINATION_CHUNK_SIZE = 25
 
-type ReadingsQuery = {
-  paginate: (args: {
-    cursor: string | null
-    numItems: number
-  }) => Promise<{
-    page: Doc<"readings">[]
-    continueCursor: string | null
-    isDone: boolean
-  }>
-}
-
 function toReadingRow(row: Doc<"readings">): ReadingRow {
   return {
     _id: row._id,
@@ -54,48 +43,36 @@ function toReadingRow(row: Doc<"readings">): ReadingRow {
   }
 }
 
-async function collectSingleStreamPage(args: {
-  query: ReadingsQuery
-  skip: number
-  limit: number
-}): Promise<{ readings: ReadingRow[]; hasMore: boolean }> {
-  const targetCount = args.skip + args.limit + 1
+// ponytail: exact `total` requires scanning the user's whole stream once (kept
+// in memory). Fine for personal tarot histories; if they ever grow huge, move
+// the count into its own internalQuery (one paginated query per function).
+async function collectSingleStream(args: {
+  query: {
+    paginate: (args: {
+      cursor: string | null
+      numItems: number
+    }) => Promise<{
+      page: Doc<"readings">[]
+      continueCursor: string | null
+      isDone: boolean
+    }>
+  }
+}): Promise<Doc<"readings">[]> {
   const rows: Doc<"readings">[] = []
   let cursor: string | null = null
   let isDone = false
 
-  while (rows.length < targetCount && !isDone) {
+  while (!isDone) {
     const batch = await args.query.paginate({
       cursor,
-      numItems: Math.max(PAGINATION_CHUNK_SIZE, targetCount - rows.length),
+      numItems: PAGINATION_CHUNK_SIZE,
     })
     rows.push(...batch.page)
     cursor = batch.continueCursor
     isDone = batch.isDone
   }
 
-  return {
-    readings: rows.slice(args.skip, args.skip + args.limit).map(toReadingRow),
-    hasMore: rows.length > args.skip + args.limit || !isDone,
-  }
-}
-
-async function countStream(query: ReadingsQuery): Promise<number> {
-  let total = 0
-  let cursor: string | null = null
-  let isDone = false
-
-  while (!isDone) {
-    const batch = await query.paginate({
-      cursor,
-      numItems: PAGINATION_CHUNK_SIZE,
-    })
-    total += batch.page.length
-    cursor = batch.continueCursor
-    isDone = batch.isDone
-  }
-
-  return total
+  return rows
 }
 
 export const saveReading = internalMutation({
@@ -155,46 +132,27 @@ export const listReadings = internalQuery({
     total: v.number(),
   }),
   handler: async (ctx, { deviceId, clerkUserId, limit, skip = 0 }) => {
-    // Signed-in users: query by clerkUserId only. Convex allows one paginated
-    // query per function, and device readings are stamped or linked on sign-in.
-    if (clerkUserId) {
-      return {
-        ...(await collectSingleStreamPage({
-          query: ctx.db
-            .query("readings")
-            .withIndex("by_clerkUserId_drawnAt", (q) =>
-              q.eq("clerkUserId", clerkUserId),
-            )
-            .order("desc"),
-          skip,
-          limit,
-        })),
-        total: await countStream(
-          ctx.db
-            .query("readings")
-            .withIndex("by_clerkUserId_drawnAt", (q) =>
-              q.eq("clerkUserId", clerkUserId),
-            )
-            .order("desc"),
-        ),
-      }
-    }
+    // Signed-in users: query by clerkUserId only; device readings are stamped
+    // or linked on sign-in. Convex allows ONE paginated query per function, so
+    // page the whole stream once, then slice the requested window from it.
+    const indexName = clerkUserId
+      ? "by_clerkUserId_drawnAt"
+      : "by_device_drawnAt"
+    const key = clerkUserId ?? deviceId
+
+    const rows = await collectSingleStream({
+      query: ctx.db
+        .query("readings")
+        .withIndex(indexName, (q) =>
+          clerkUserId ? q.eq("clerkUserId", key) : q.eq("deviceId", key),
+        )
+        .order("desc"),
+    })
 
     return {
-      ...(await collectSingleStreamPage({
-        query: ctx.db
-          .query("readings")
-          .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
-          .order("desc"),
-        skip,
-        limit,
-      })),
-      total: await countStream(
-        ctx.db
-          .query("readings")
-          .withIndex("by_device_drawnAt", (q) => q.eq("deviceId", deviceId))
-          .order("desc"),
-      ),
+      readings: rows.slice(skip, skip + limit).map(toReadingRow),
+      hasMore: rows.length > skip + limit,
+      total: rows.length,
     }
   },
 })

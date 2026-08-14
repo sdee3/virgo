@@ -30,8 +30,6 @@ const readingDoc = v.object({
   ),
 })
 
-const PAGINATION_CHUNK_SIZE = 25
-
 function toReadingRow(row: Doc<"readings">): ReadingRow {
   return {
     _id: row._id,
@@ -41,38 +39,6 @@ function toReadingRow(row: Doc<"readings">): ReadingRow {
     drawnAt: row.drawnAt,
     contextType: row.contextType,
   }
-}
-
-// ponytail: exact `total` requires scanning the user's whole stream once (kept
-// in memory). Fine for personal tarot histories; if they ever grow huge, move
-// the count into its own internalQuery (one paginated query per function).
-async function collectSingleStream(args: {
-  query: {
-    paginate: (args: {
-      cursor: string | null
-      numItems: number
-    }) => Promise<{
-      page: Doc<"readings">[]
-      continueCursor: string | null
-      isDone: boolean
-    }>
-  }
-}): Promise<Doc<"readings">[]> {
-  const rows: Doc<"readings">[] = []
-  let cursor: string | null = null
-  let isDone = false
-
-  while (!isDone) {
-    const batch = await args.query.paginate({
-      cursor,
-      numItems: PAGINATION_CHUNK_SIZE,
-    })
-    rows.push(...batch.page)
-    cursor = batch.continueCursor
-    isDone = batch.isDone
-  }
-
-  return rows
 }
 
 export const saveReading = internalMutation({
@@ -133,21 +99,20 @@ export const listReadings = internalQuery({
   }),
   handler: async (ctx, { deviceId, clerkUserId, limit, skip = 0 }) => {
     // Signed-in users: query by clerkUserId only; device readings are stamped
-    // or linked on sign-in. Convex allows ONE paginated query per function, so
-    // page the whole stream once, then slice the requested window from it.
+    // or linked on sign-in. Personal histories are small — collect once, then
+    // slice the requested window (avoids Convex paginate chaining limits).
     const indexName = clerkUserId
       ? "by_clerkUserId_drawnAt"
       : "by_device_drawnAt"
     const key = clerkUserId ?? deviceId
 
-    const rows = await collectSingleStream({
-      query: ctx.db
-        .query("readings")
-        .withIndex(indexName, (q) =>
-          clerkUserId ? q.eq("clerkUserId", key) : q.eq("deviceId", key),
-        )
-        .order("desc"),
-    })
+    const rows = await ctx.db
+      .query("readings")
+      .withIndex(indexName, (q) =>
+        clerkUserId ? q.eq("clerkUserId", key) : q.eq("deviceId", key),
+      )
+      .order("desc")
+      .collect()
 
     return {
       readings: rows.slice(skip, skip + limit).map(toReadingRow),

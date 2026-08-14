@@ -43,7 +43,7 @@ vi.mock("convex/values", () => ({
   ),
 }))
 
-function createPaginatedDb(datasets: {
+function createReadingsDb(datasets: {
   user: Record<string, TestReading[]>
   device: Record<string, TestReading[]>
 }) {
@@ -71,27 +71,9 @@ function createPaginatedDb(datasets: {
           return this
         },
         collect() {
-          throw new Error("collect should not be used for listReadings pagination")
-        },
-        paginate({
-          cursor,
-          numItems,
-        }: {
-          cursor: string | null
-          numItems: number
-        }) {
-          const source =
-            indexName === "by_clerkUserId_drawnAt"
-              ? datasets.user[keyValue] ?? []
-              : datasets.device[keyValue] ?? []
-          const start = cursor ? Number(cursor) : 0
-          const page = source.slice(start, start + numItems)
-          const next = start + page.length
-          return {
-            page,
-            continueCursor: next < source.length ? String(next) : null,
-            isDone: next >= source.length,
-          }
+          return indexName === "by_clerkUserId_drawnAt"
+            ? datasets.user[keyValue] ?? []
+            : datasets.device[keyValue] ?? []
         },
       }
     },
@@ -113,7 +95,7 @@ describe("readings security hardening", () => {
     expect((module.linkDeviceToUser as any).kind).toBe("mutation")
   })
 
-  it("pages signed-in readings by clerkUserId without collecting the entire history", async () => {
+  it("pages signed-in readings by clerkUserId and ignores device-only rows", async () => {
     const module = await import("./readings")
 
     const userRows: TestReading[] = [
@@ -173,7 +155,7 @@ describe("readings security hardening", () => {
 
     const result = await (module.listReadings as any).handler(
       {
-        db: createPaginatedDb({
+        db: createReadingsDb({
           user: { user_123: userRows },
           device: { device_123: deviceRows },
         }),

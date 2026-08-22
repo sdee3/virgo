@@ -64,6 +64,45 @@ export async function debitCreditsForUser(args: {
   });
 }
 
+/**
+ * True when the user holds an active premium entitlement in the shared
+ * Identity deployment. Premium users get unlimited readings, so Virgo skips
+ * its credit debit. Fail-open toward charging: a transient lookup error
+ * returns `false` so an entitlement is never granted for free.
+ */
+export async function hasPremiumEntitlementForUser(
+  clerkUserId: string,
+): Promise<boolean> {
+  const siteUrl = process.env.IDENTITY_CONVEX_SITE_URL;
+  const serviceSecret = process.env.CREDITS_SERVICE_SECRET_VIRGO;
+  if (!siteUrl || !serviceSecret) {
+    return false;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${siteUrl}/api/premium/status`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceSecret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ clerkUserId }),
+    });
+  } catch {
+    return false;
+  }
+
+  if (!response.ok) {
+    return false;
+  }
+
+  const body = (await response.json().catch(() => ({}))) as {
+    isPremium?: boolean;
+  };
+  return body.isPremium === true;
+}
+
 export async function refundCreditsForUser(args: {
   clerkUserId: string;
   amount: number;

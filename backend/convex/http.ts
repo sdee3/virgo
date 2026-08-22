@@ -5,6 +5,7 @@ import { api, internal } from "./_generated/api"
 import { getClerkUserIdOrNull } from "./lib/auth"
 import {
   debitCreditsForUser,
+  hasPremiumEntitlementForUser,
   isCreditsEnforcementEnabled,
   refundSummaryDebit,
   SUMMARY_CREDIT_COST,
@@ -636,23 +637,27 @@ http.route({
     }
 
     if (clerkUserId && creditsEnforcementEnabled && idempotencyKey) {
-      try {
-        await debitCreditsForUser({
-          clerkUserId,
-          amount: SUMMARY_CREDIT_COST,
-          reason: creditReason,
-          idempotencyKey,
-          metadata: debitMetadata,
-        })
-        debited = true
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Insufficient credits"
-        const status = message.includes("Insufficient") ? 402 : 503
-        return new Response(JSON.stringify({ error: message }), {
-          status,
-          headers,
-        })
+      if (await hasPremiumEntitlementForUser(clerkUserId)) {
+        // Premium: unlimited readings — skip the debit.
+      } else {
+        try {
+          await debitCreditsForUser({
+            clerkUserId,
+            amount: SUMMARY_CREDIT_COST,
+            reason: creditReason,
+            idempotencyKey,
+            metadata: debitMetadata,
+          })
+          debited = true
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Insufficient credits"
+          const status = message.includes("Insufficient") ? 402 : 503
+          return new Response(JSON.stringify({ error: message }), {
+            status,
+            headers,
+          })
+        }
       }
     }
 

@@ -2,7 +2,7 @@
   "name": "virgo-backend",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.15.0",
+  "packageManager": "pnpm@11.23.0",
   "engines": {
     "node": ">=24.0.0",
     "pnpm": ">=11.0.0"
@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "convex": "^1.43.0"
+    "convex": "^1.45.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

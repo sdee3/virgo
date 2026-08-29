@@ -52,7 +52,11 @@ export const ALLOWED_ORIGINS = [
 ] as const
 
 export const MAX_CARD_NAME_LENGTH = 100
-export const MAX_SUMMARY_LENGTH = 600
+
+// ponytail: hard ceiling on stored summaries. Model is capped at max_tokens
+// 200 (~800 chars), so 2000 never binds in practice; it only guards runaway
+// output. Raise if the generation budget ever grows.
+export const MAX_SUMMARY_LENGTH = 2000
 
 const VALID_CARD_NAMES = new Set<string>([
   ...MAJOR_ARCANA,

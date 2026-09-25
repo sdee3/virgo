@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "convex": "^1.45.0"
+    "convex": "^1.46.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

@@ -101,8 +101,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
-      '@convex-api': path.resolve(__dirname, '../backend/convex/_generated/api.js'),
+      '@': path.resolve(import.meta.dirname, 'src'),
+      '@convex-api': path.resolve(import.meta.dirname, '../backend/convex/_generated/api.js'),
     },
   },
   server: {

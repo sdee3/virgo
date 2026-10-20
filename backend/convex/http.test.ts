@@ -217,10 +217,7 @@ describe("http security hardening", () => {
 
     const routes = await loadRoutes()
     const route = findRoute(routes, "/readings", "GET")
-    const runQuery = vi
-      .fn()
-      .mockResolvedValueOnce("user_999")
-      .mockResolvedValueOnce({ readings: [], hasMore: false })
+    const runQuery = vi.fn().mockResolvedValueOnce({ deviceLinkConflict: true })
 
     const response = await route.handler(
       { runQuery },
@@ -235,6 +232,39 @@ describe("http security hardening", () => {
     )
 
     expect(response.status).toBe(403)
+    expect(runQuery).toHaveBeenCalledTimes(1)
+  })
+
+  it("requests one cursor page of readings", async () => {
+    const routes = await loadRoutes()
+    const route = findRoute(routes, "/readings", "GET")
+    const payload = {
+      deviceLinkConflict: false,
+      readings: [],
+      hasMore: true,
+      continueCursor: "next-page",
+    }
+    const runQuery = vi.fn(async (_query: unknown, _args: unknown) => payload)
+
+    const response = await route.handler(
+      { runQuery },
+      new Request("https://virgo.example/readings?limit=20&cursor=previous-page", {
+        method: "GET",
+        headers: {
+          "X-Device-Id": "device-1",
+          Origin: "https://virgo.sdee3.com",
+        },
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(payload)
+    expect(runQuery).toHaveBeenCalledTimes(1)
+    expect(runQuery.mock.calls[0]?.[1]).toEqual({
+      deviceId: "device-1",
+      clerkUserId: undefined,
+      paginationOpts: { numItems: 20, cursor: "previous-page" },
+    })
   })
 
   it("sanitizes model output before returning and saving summaries", async () => {

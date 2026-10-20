@@ -19,6 +19,7 @@ type IdentityContextValue = {
   enabled: boolean
   isLoaded: boolean
   isSignedIn: boolean
+  userId: string | null
   userLabel: string | null
   signIn: () => void
   signOut: () => Promise<void>
@@ -66,6 +67,7 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
       enabled: true,
       isLoaded,
       isSignedIn: Boolean(isSignedIn),
+      userId: user?.id ?? null,
       userLabel:
         user?.primaryEmailAddress?.emailAddress ??
         user?.fullName ??

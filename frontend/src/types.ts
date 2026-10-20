@@ -19,5 +19,6 @@ export interface StoredReading {
 export interface ReadingsResponse {
   readings: StoredReading[]
   hasMore: boolean
+  continueCursor: string
   error?: string
 }

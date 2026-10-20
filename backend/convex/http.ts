@@ -471,34 +471,13 @@ http.route({
       )
     }
 
-    const linkedClerkUserId = await getLinkedClerkUserId(ctx, deviceId)
-    if (
-      isDeviceLinkedToDifferentUser({
-        authenticatedUserId: clerkUserId,
-        linkedUserId: linkedClerkUserId,
-      })
-    ) {
-      return new Response(JSON.stringify({ error: "This device is linked to another account." }), {
-        status: 403,
-        headers,
-      })
-    }
-
     const url = new URL(request.url)
     const limitParam = url.searchParams.get("limit")
-    const skipParam = url.searchParams.get("skip")
-    const limit = limitParam ? Number.parseInt(limitParam, 10) : 3
-    const skip = skipParam ? Number.parseInt(skipParam, 10) : 0
+    const limit = limitParam ? Number(limitParam) : 3
+    const cursor = url.searchParams.get("cursor") || null
 
-    if (!Number.isFinite(limit) || limit < 1 || limit > 100) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       return new Response(JSON.stringify({ error: "Invalid limit" }), {
-        status: 400,
-        headers,
-      })
-    }
-
-    if (!Number.isFinite(skip) || skip < 0) {
-      return new Response(JSON.stringify({ error: "Invalid skip" }), {
         status: 400,
         headers,
       })
@@ -507,9 +486,15 @@ http.route({
     const result = await ctx.runQuery(internal.readings.listReadings, {
       deviceId: deviceId ?? "",
       clerkUserId: clerkUserId ?? undefined,
-      limit,
-      skip,
+      paginationOpts: { numItems: limit, cursor },
     })
+
+    if (result.deviceLinkConflict) {
+      return new Response(JSON.stringify({ error: "This device is linked to another account." }), {
+        status: 403,
+        headers,
+      })
+    }
 
     return new Response(JSON.stringify(result), { headers })
   }),

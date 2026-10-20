@@ -46,17 +46,14 @@ vi.mock("convex/values", () => ({
 function createReadingsDb(datasets: {
   user: Record<string, TestReading[]>
   device: Record<string, TestReading[]>
+  deviceLinks?: Record<string, string>
 }) {
   return {
     query(tableName: string) {
-      if (tableName !== "readings") {
-        throw new Error(`Unexpected table: ${tableName}`)
-      }
-
       let indexName = ""
       let keyValue = ""
 
-      return {
+      const query = {
         withIndex(name: string, callback: (query: { eq: (_field: string, value: string) => unknown }) => unknown) {
           indexName = name
           callback({
@@ -70,12 +67,30 @@ function createReadingsDb(datasets: {
         order() {
           return this
         },
-        collect() {
-          return indexName === "by_clerkUserId_drawnAt"
+        unique() {
+          if (tableName !== "deviceLinks") {
+            throw new Error(`Unexpected unique query: ${tableName}`)
+          }
+          const clerkUserId = datasets.deviceLinks?.[keyValue]
+          return clerkUserId ? { clerkUserId } : null
+        },
+        paginate({ numItems, cursor }: { numItems: number; cursor: string | null }) {
+          if (tableName !== "readings") {
+            throw new Error(`Unexpected paginate query: ${tableName}`)
+          }
+          const rows = indexName === "by_clerkUserId_drawnAt"
             ? datasets.user[keyValue] ?? []
             : datasets.device[keyValue] ?? []
+          const start = cursor ? Number(cursor) : 0
+          const end = Math.min(start + numItems, rows.length)
+          return {
+            page: rows.slice(start, end),
+            isDone: end >= rows.length,
+            continueCursor: String(end),
+          }
         },
       }
+      return query
     },
   }
 }
@@ -153,23 +168,31 @@ describe("readings security hardening", () => {
       },
     ]
 
-    const result = await (module.listReadings as any).handler(
+    const db = createReadingsDb({
+      user: { user_123: userRows },
+      device: { device_123: deviceRows },
+    })
+    const firstPage = await (module.listReadings as any).handler(
       {
-        db: createReadingsDb({
-          user: { user_123: userRows },
-          device: { device_123: deviceRows },
-        }),
+        db,
       } as never,
       {
         deviceId: "device_123",
         clerkUserId: "user_123",
-        limit: 2,
-        skip: 1,
+        paginationOpts: { numItems: 2, cursor: null },
       },
     )
 
-    expect(result).toEqual({
+    expect(firstPage).toEqual({
+      deviceLinkConflict: false,
       readings: [
+        {
+          _id: "u-9",
+          _creationTime: 9,
+          cardName: "The Fool",
+          summary: "u9",
+          drawnAt: 9,
+        },
         {
           _id: "shared-7",
           _creationTime: 7,
@@ -178,16 +201,40 @@ describe("readings security hardening", () => {
           drawnAt: 7,
           contextType: "dating-potential-match",
         },
-        {
-          _id: "u-3",
-          _creationTime: 3,
-          cardName: "The Hermit",
-          summary: "u3",
-          drawnAt: 3,
-        },
       ],
-      hasMore: false,
-      total: 3,
+      hasMore: true,
+      continueCursor: "2",
     })
+
+    const secondPage = await (module.listReadings as any).handler(
+      { db } as never,
+      {
+        deviceId: "device_123",
+        clerkUserId: "user_123",
+        paginationOpts: { numItems: 2, cursor: firstPage.continueCursor },
+      },
+    )
+    expect(secondPage.readings.map((row: TestReading) => row._id)).toEqual(["u-3"])
+    expect(secondPage.hasMore).toBe(false)
+  })
+
+  it("rejects a linked device before it reads the history", async () => {
+    const module = await import("./readings")
+    const db = createReadingsDb({
+      user: {},
+      device: {},
+      deviceLinks: { device_123: "user_999" },
+    })
+
+    const result = await (module.listReadings as any).handler(
+      { db } as never,
+      {
+        deviceId: "device_123",
+        clerkUserId: "user_123",
+        paginationOpts: { numItems: 20, cursor: null },
+      },
+    )
+
+    expect(result).toEqual({ deviceLinkConflict: true })
   })
 })

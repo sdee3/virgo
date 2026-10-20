@@ -4,7 +4,7 @@ import type { StoredReading } from "../types"
 interface PastReadingsProps {
   readings: StoredReading[]
   hasMore: boolean
-  showAll: boolean
+  isLoadingMore: boolean
   onSelect: (reading: StoredReading) => void
   onSeeMore: () => void
   hideTitle?: boolean
@@ -13,7 +13,7 @@ interface PastReadingsProps {
 export function PastReadings({
   readings,
   hasMore,
-  showAll,
+  isLoadingMore,
   onSelect,
   onSeeMore,
   hideTitle = false,
@@ -36,9 +36,14 @@ export function PastReadings({
           </li>
         ))}
       </ul>
-      {hasMore && !showAll && (
-        <button type="button" className="past-readings-more" onClick={onSeeMore}>
-          See More
+      {hasMore && (
+        <button
+          type="button"
+          className="past-readings-more"
+          onClick={onSeeMore}
+          disabled={isLoadingMore}
+        >
+          {isLoadingMore ? "Loading…" : "See More"}
         </button>
       )}
     </section>

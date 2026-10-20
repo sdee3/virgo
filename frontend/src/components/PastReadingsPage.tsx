@@ -6,7 +6,7 @@ import type { StoredReading } from "../types"
 interface PastReadingsPageProps {
   readings: StoredReading[]
   hasMore: boolean
-  showAll: boolean
+  isLoadingMore: boolean
   onBack: () => void
   onSelect: (reading: StoredReading) => void
   onSeeMore: () => void
@@ -16,7 +16,7 @@ interface PastReadingsPageProps {
 export function PastReadingsPage({
   readings,
   hasMore,
-  showAll,
+  isLoadingMore,
   onBack,
   onSelect,
   onSeeMore,
@@ -51,7 +51,7 @@ export function PastReadingsPage({
           <PastReadings
             readings={readings}
             hasMore={hasMore}
-            showAll={showAll}
+            isLoadingMore={isLoadingMore}
             onSelect={onSelect}
             onSeeMore={onSeeMore}
             hideTitle

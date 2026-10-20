@@ -1,4 +1,5 @@
 import type { Doc, Id } from "./_generated/dataModel"
+import { paginationOptsValidator } from "convex/server"
 import { internalMutation, internalQuery, mutation } from "./_generated/server"
 import { v } from "convex/values"
 import { requireClerkUserId } from "./lib/auth"
@@ -89,35 +90,46 @@ export const listReadings = internalQuery({
   args: {
     deviceId: v.string(),
     clerkUserId: v.optional(v.string()),
-    limit: v.number(),
-    skip: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
   },
-  returns: v.object({
-    readings: v.array(readingDoc),
-    hasMore: v.boolean(),
-    total: v.number(),
-  }),
-  handler: async (ctx, { deviceId, clerkUserId, limit, skip = 0 }) => {
-    // Signed-in users: query by clerkUserId only; device readings are stamped
-    // or linked on sign-in. Personal histories are small — collect once, then
-    // slice the requested window (avoids Convex paginate chaining limits).
+  returns: v.union(
+    v.object({ deviceLinkConflict: v.literal(true) }),
+    v.object({
+      deviceLinkConflict: v.literal(false),
+      readings: v.array(readingDoc),
+      hasMore: v.boolean(),
+      continueCursor: v.string(),
+    }),
+  ),
+  handler: async (ctx, { deviceId, clerkUserId, paginationOpts }) => {
+    if (clerkUserId && deviceId) {
+      const link = await ctx.db
+        .query("deviceLinks")
+        .withIndex("by_deviceId", (q) => q.eq("deviceId", deviceId))
+        .unique()
+      if (link && link.clerkUserId !== clerkUserId) {
+        return { deviceLinkConflict: true as const }
+      }
+    }
+
     const indexName = clerkUserId
       ? "by_clerkUserId_drawnAt"
       : "by_device_drawnAt"
     const key = clerkUserId ?? deviceId
 
-    const rows = await ctx.db
+    const page = await ctx.db
       .query("readings")
       .withIndex(indexName, (q) =>
         clerkUserId ? q.eq("clerkUserId", key) : q.eq("deviceId", key),
       )
       .order("desc")
-      .collect()
+      .paginate(paginationOpts)
 
     return {
-      readings: rows.slice(skip, skip + limit).map(toReadingRow),
-      hasMore: rows.length > skip + limit,
-      total: rows.length,
+      deviceLinkConflict: false as const,
+      readings: page.page.map(toReadingRow),
+      hasMore: !page.isDone,
+      continueCursor: page.continueCursor,
     }
   },
 })

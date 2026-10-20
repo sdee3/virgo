@@ -28,10 +28,10 @@ import "./App.css"
 type PageView = "home" | "past-readings" | "credits"
 
 const PAST_READINGS_PREVIEW = 3
-const PAST_READINGS_FULL = 100
+const PAST_READINGS_PAGE_SIZE = 20
 
 function AppInner() {
-  const { isSignedIn } = useIdentity()
+  const { isSignedIn, userId } = useIdentity()
   const identityReady = useIdentityUserReady()
   const balance = useQuery(
     identityApi.credits.queries.getBalance,
@@ -62,35 +62,61 @@ function AppInner() {
 
   const [pastReadings, setPastReadings] = useState<StoredReading[]>([])
   const [pastHasMore, setPastHasMore] = useState(false)
-  const [showAllPastReadings, setShowAllPastReadings] = useState(false)
+  const [pastCursor, setPastCursor] = useState<string | null>(null)
+  const [isLoadingMorePast, setIsLoadingMorePast] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
   const [idleExiting, setIdleExiting] = useState(false)
 
   const isReversedRef = useRef(false)
   const drawnAtRef = useRef<number>(0)
+  const pastRequestIdRef = useRef(0)
+  const isLoadingMorePastRef = useRef(false)
 
-  const loadPastReadings = useCallback(async (showAll: boolean) => {
+  const loadPastReadings = useCallback(async (limit: number) => {
+    const requestId = ++pastRequestIdRef.current
+    isLoadingMorePastRef.current = false
+    setIsLoadingMorePast(false)
+    setPastReadings([])
+    setPastHasMore(false)
+    setPastCursor(null)
     try {
-      const limit = showAll ? PAST_READINGS_FULL : PAST_READINGS_PREVIEW
-      const { readings, hasMore } = await fetchReadings(limit)
-      setPastReadings(readings)
-      setPastHasMore(hasMore)
+      const result = await fetchReadings(limit)
+      if (requestId !== pastRequestIdRef.current) return
+      setPastReadings(result.readings)
+      setPastHasMore(result.hasMore)
+      setPastCursor(result.continueCursor)
     } catch {
       // Past readings are optional; fail silently.
     }
   }, [])
 
   useEffect(() => {
-    const showAll = pageView === "past-readings" || showAllPastReadings
-    void loadPastReadings(showAll)
-  }, [pageView, showAllPastReadings, loadPastReadings, isSignedIn])
+    const limit = pageView === "past-readings"
+      ? PAST_READINGS_PAGE_SIZE
+      : PAST_READINGS_PREVIEW
+    void loadPastReadings(limit)
+  }, [pageView, loadPastReadings, isSignedIn, userId])
 
-  useEffect(() => {
-    if (cardFile) {
-      const showAll = pageView === "past-readings" || showAllPastReadings
-      void loadPastReadings(showAll)
+  const loadMorePastReadings = useCallback(async () => {
+    if (!pastHasMore || !pastCursor || isLoadingMorePastRef.current) return
+    isLoadingMorePastRef.current = true
+    setIsLoadingMorePast(true)
+    const requestId = pastRequestIdRef.current
+    try {
+      const result = await fetchReadings(PAST_READINGS_PAGE_SIZE, pastCursor)
+      if (requestId !== pastRequestIdRef.current) return
+      setPastReadings((current) => [...current, ...result.readings])
+      setPastHasMore(result.hasMore)
+      setPastCursor(result.continueCursor)
+    } catch {
+      // Keep the current page available when the next page fails.
+    } finally {
+      if (requestId === pastRequestIdRef.current) {
+        isLoadingMorePastRef.current = false
+        setIsLoadingMorePast(false)
+      }
     }
-  }, [cardFile, pageView, showAllPastReadings, loadPastReadings])
+  }, [pastCursor, pastHasMore])
 
   useEffect(() => {
     if (!cardFile) {
@@ -161,7 +187,11 @@ function AppInner() {
         setSummary(data.summary)
         setRemaining(data.remaining)
         void refreshCreditsBalance()
-        void loadPastReadings(showAllPastReadings)
+        void loadPastReadings(
+          pageView === "past-readings"
+            ? PAST_READINGS_PAGE_SIZE
+            : PAST_READINGS_PREVIEW,
+        )
       } catch (err: unknown) {
         void refreshCreditsBalance()
         setSummaryError(
@@ -178,7 +208,7 @@ function AppInner() {
     cardFile,
     isSignedIn,
     loadPastReadings,
-    showAllPastReadings,
+    pageView,
     tarotCost,
   ])
 
@@ -232,7 +262,6 @@ function AppInner() {
   }, [])
 
   const openPastReadingsPage = useCallback(() => {
-    setShowAllPastReadings(true)
     setPageView("past-readings")
     setIdleExiting(false)
     setCardFile(null)
@@ -255,8 +284,8 @@ function AppInner() {
   }, [])
 
   const handleSeeMorePast = useCallback(() => {
-    setShowAllPastReadings(true)
-  }, [])
+    void loadMorePastReadings()
+  }, [loadMorePastReadings])
 
   const appTitle = (
     <h1 className="title">
@@ -292,7 +321,7 @@ function AppInner() {
         <PastReadingsPage
           readings={pastReadings}
           hasMore={pastHasMore}
-          showAll={showAllPastReadings}
+          isLoadingMore={isLoadingMorePast}
           onBack={backToHome}
           onSelect={openPastReading}
           onSeeMore={handleSeeMorePast}

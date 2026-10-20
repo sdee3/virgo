@@ -33,12 +33,10 @@ async function apiHeaders(): Promise<HeadersInit> {
 
 export async function fetchReadings(
   limit: number,
-  skip = 0,
+  cursor?: string | null,
 ): Promise<ReadingsResponse> {
-  const params = new URLSearchParams({
-    limit: String(limit),
-    skip: String(skip),
-  })
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (cursor) params.set("cursor", cursor)
   const res = await apiFetch(`${CONVEX_SITE_URL}/readings?${params}`, {
     headers: await apiHeaders(),
   })
